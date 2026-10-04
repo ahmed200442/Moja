@@ -50,7 +50,11 @@ class MawjaRepository {""",
 start = s.index("    suspend fun registerPushToken")
 end = s.index("    suspend fun markNotificationRead", start)
 s = s[:start] + """    suspend fun registerPushToken(token: String, platform: String = "android") {
-        client.postgrest.rpc("mawja_register_push_token", RegisterPushTokenParams(token, platform))
+        val params: JsonObject = buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        }
+        client.postgrest.rpc("mawja_register_push_token", params)
     }
 
 """ + s[end:]
@@ -58,8 +62,18 @@ s = s[:start] + """    suspend fun registerPushToken(token: String, platform: St
 start = s.index("    suspend fun markNotificationRead")
 end = s.index("    suspend fun notificationRoute", start)
 s = s[:start] + """    suspend fun markNotificationRead(notificationId: String) {
-        client.postgrest.rpc("mawja_mark_notification_read", NotificationReadParams(notificationId))
+        val params: JsonObject = buildJsonObject { put("p_notification_id", notificationId) }
+        client.postgrest.rpc("mawja_mark_notification_read", params)
     }
+
+""" + s[end:]
+
+start = s.index("    suspend fun inbox")
+end = s.index("    suspend fun profilesByIds", start)
+s = s[:start] + """    suspend fun inbox(): List<InboxRow> =
+        client.from("mawja_inbox").select().decodeList<InboxRow>()
+            .filter { it.user_id == userId() }
+            .sortedByDescending { it.last_message_at ?: it.updated_at }
 
 """ + s[end:]
 
@@ -67,9 +81,7 @@ start = s.index("    suspend fun profilesByIds")
 end = s.index("    suspend fun markConversationRead", start)
 s = s[:start] + """    suspend fun profilesByIds(ids: List<String>): List<Profile> {
         if (ids.isEmpty()) return emptyList()
-        return client.from("profiles").select {
-            filter { isIn("id", ids) }
-        }.decodeList<Profile>()
+        return client.from("profiles").select().decodeList<Profile>().filter { it.id in ids }
     }
 
 """ + s[end:]
@@ -77,37 +89,22 @@ s = s[:start] + """    suspend fun profilesByIds(ids: List<String>): List<Profil
 start = s.index("    suspend fun markConversationRead")
 end = s.index("    suspend fun setPresence", start)
 s = s[:start] + """    suspend fun markConversationRead(conversationId: String) {
-        client.postgrest.rpc("mawja_mark_conversation_read", ConversationReadParams(conversationId))
-    }
-
-""" + s[end:]
-
-start = s.index("    suspend fun inbox")
-end = s.index("    suspend fun profilesByIds", start)
-s = s[:start] + """    suspend fun inbox(): List<InboxRow> = client.from<InboxRow>("mawja_inbox").select {
-        filter { eq("user_id", userId()) }
-    }.decodeList<InboxRow>().sortedByDescending { it.last_message_at ?: it.updated_at }
-
-""" + s[end:]
-
-start = s.index("    suspend fun profilesByIds")
-end = s.index("    suspend fun markConversationRead", start)
-s = s[:start] + """    suspend fun profilesByIds(ids: List<String>): List<Profile> {
-        if (ids.isEmpty()) return emptyList()
-        return client.from<Profile>("profiles").select {
-            filter { isIn("id", ids) }
-        }.decodeList<Profile>()
+        val params: JsonObject = buildJsonObject { put("p_conversation_id", conversationId) }
+        client.postgrest.rpc("mawja_mark_conversation_read", params)
     }
 
 """ + s[end:]
 
 start = s.index("    suspend fun setPresence")
 end = s.index("    fun presenceFlow", start)
-s = s[:start] + """    suspend fun setPresence(online: Boolean, typingConversationId: String? = null): UserPresence =
-        client.postgrest.rpc(
-            "mawja_set_presence",
-            PresenceParams(online, typingConversationId)
-        ).decodeSingle<UserPresence>()
+s = s[:start] + """    suspend fun setPresence(online: Boolean, typingConversationId: String? = null): UserPresence {
+        val params: JsonObject = buildJsonObject {
+            put("p_online", online)
+            if (typingConversationId == null) put("p_typing_conversation_id", JsonNull)
+            else put("p_typing_conversation_id", typingConversationId)
+        }
+        return client.postgrest.rpc("mawja_set_presence", params).decodeSingle<UserPresence>()
+    }
 
 """ + s[end:]
 
