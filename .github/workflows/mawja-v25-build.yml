@@ -55,35 +55,21 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "platform-tools"
 
-      - name: Patch V25 source for current SDK APIs
+      - name: Patch V25 source compatibility
         shell: bash
         run: |
           set -euo pipefail
-          sed -i 's/compileSdk = 35/compileSdk = 36/' app/build.gradle.kts
           python3 - <<'PY'
           from pathlib import Path
 
           repo=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
-          lines=repo.read_text().splitlines()
-          cleaned=[]
-          for line in lines:
-              if line.strip() == "import io.github.jan.supabase.functions.invoke":
-                  continue
-              if line.strip() == "import io.github.jan.supabase.auth.providers.Email":
-                  line="import io.github.jan.supabase.auth.providers.builtin.Email"
-              cleaned.append(line)
-          if "import io.github.jan.supabase.auth.auth" not in cleaned:
-              pkg=cleaned.index("package com.mawja.app.data")
-              cleaned[pkg+1:pkg+1]=[
-                  "import io.github.jan.supabase.auth.auth",
-                  "import io.github.jan.supabase.postgrest.postgrest",
-                  "import io.github.jan.supabase.functions.functions",
-              ]
-          repo.write_text(chr(10).join(cleaned)+chr(10))
+          s=repo.read_text()
+          s=s.replace("import io.github.jan.supabase.auth.providers.Email", "import io.github.jan.supabase.auth.providers.builtin.Email")
+          s=s.replace("import io.github.jan.supabase.functions.invoke\\n", "")
+          repo.write_text(s)
 
           main=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
           s=main.read_text()
-          s=s.replace("unreadMessages = state.unreadMessages,", "unreadMessages = state.unreadMessages,")
           s=s.replace("unreadNotifications = state.notifications.count { !it.is_read },", "unreadNotifications = state.notifications.count { !it.is_read }.toLong(),")
           s=s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))', 'Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
           s=s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))', 'Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
@@ -92,11 +78,7 @@ jobs:
               marker='@Composable fun RankRow(name: String, score: String) {'
               insert='''@Composable
           fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
-              Card(
-                  colors = CardDefaults.cardColors(containerColor = Surface),
-                  shape = RoundedCornerShape(18.dp),
-                  modifier = Modifier.fillMaxWidth()
-              ) {
+              Card(colors = CardDefaults.cardColors(containerColor = Surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
                   Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                       Column(Modifier.weight(1f)) {
                           Text(title, fontWeight = FontWeight.Bold)
@@ -116,14 +98,6 @@ jobs:
                   raise SystemExit("ChallengeRow insertion marker missing")
               s=s.replace(marker,insert+marker,1)
           main.write_text(s)
-
-          gradle=Path("app/build.gradle.kts")
-          s=gradle.read_text()
-          if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
-              s=s.replace("    buildFeatures {", "    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_17\n        targetCompatibility = JavaVersion.VERSION_17\n    }\n\n    buildFeatures {", 1)
-          if "jvmToolchain(17)" not in s:
-              s += "\n\nkotlin {\n    jvmToolchain(17)\n}\n"
-          gradle.write_text(s)
           PY
 
       - name: Java 21
