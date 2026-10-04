@@ -122,9 +122,28 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/scripts/v25_final_fix.py
-          if ! grep -q '^import io.github.jan.supabase.functions.invoke$' app/src/main/java/com/mawja/app/data/MawjaRepository.kt; then
-            sed -i '/^import io.github.jan.supabase.functions.functions$/a import io.github.jan.supabase.functions.invoke' app/src/main/java/com/mawja/app/data/MawjaRepository.kt
-          fi
+          # Normalize Supabase 3.5 APIs and Kotlin 2.2 type inference.
+          sed -i '/^import io.github.jan.supabase.functions.invoke$/d' app/src/main/java/com/mawja/app/data/MawjaRepository.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
+          s=p.read_text()
+          s=s.replace('''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        })''','''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        }).decodeSingle<Unit>()''')
+          s=s.replace('''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })''','''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()''')
+          s=s.replace('''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })''','''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()''')
+          s=s.replace('''return client.from("profiles").select {
+            filter { isIn("id", ids) }
+        }.decodeList()''','''return client.from("profiles").select {
+            filter { isIn("id", ids) }
+        }.decodeList<Profile>()''')
+          p.write_text(s)
+          PY
 
       - name: Java 17
         uses: actions/setup-java@v4
