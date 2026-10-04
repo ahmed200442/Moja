@@ -193,5 +193,7 @@ private fun AdminControlCard(icon: ImageVector, title: String, subtitle: String)
     }
 }
 '''
+if "import androidx.compose.ui.graphics.vector.ImageVector" not in m:
+    m=m.replace("import androidx.compose.ui.graphics.Color", "import androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.vector.ImageVector", 1)
 main.write_text(m)
 
