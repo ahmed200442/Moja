@@ -27,24 +27,18 @@ if "import io.ktor.client.call.body" not in s:
         "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject",
     )
 
-# Kotlin 2.2 needs explicit RPC result types for side-effect calls.
+# Give the RPC response type explicitly; these calls are used for side effects.
 s=s.replace(
-    """        })
-    }
-
-    suspend fun markNotificationRead""",
-    """        }).decodeSingle<Unit>()
-    }
-
-    suspend fun markNotificationRead"""
+    'client.postgrest.rpc("mawja_register_push_token",',
+    'client.postgrest.rpc<JsonObject>("mawja_register_push_token",'
 )
 s=s.replace(
-    'client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })',
-    'client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()'
+    'client.postgrest.rpc("mawja_mark_notification_read",',
+    'client.postgrest.rpc<JsonObject>("mawja_mark_notification_read",'
 )
 s=s.replace(
-    'client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })',
-    'client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()'
+    'client.postgrest.rpc("mawja_mark_conversation_read",',
+    'client.postgrest.rpc<JsonObject>("mawja_mark_conversation_read",'
 )
 s=s.replace(
     '''return client.from("profiles").select {
