@@ -27,24 +27,45 @@ if "import io.ktor.client.call.body" not in s:
         "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject",
     )
 
-# Give the RPC response type explicitly; these calls are used for side effects.
+# Avoid nested lambda type inference by materializing RPC parameters first.
 s=s.replace(
-    'client.postgrest.rpc("mawja_register_push_token",',
-    'client.postgrest.rpc<JsonObject>("mawja_register_push_token",'
+'''    suspend fun registerPushToken(token: String, platform: String = "android") {
+        client.postgrest.rpc<JsonObject>("mawja_register_push_token", buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        })
+    }''',
+'''    suspend fun registerPushToken(token: String, platform: String = "android") {
+        val params = buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        }
+        client.postgrest.rpc("mawja_register_push_token", params)
+    }'''
 )
 s=s.replace(
-    'client.postgrest.rpc("mawja_mark_notification_read",',
-    'client.postgrest.rpc<JsonObject>("mawja_mark_notification_read",'
+'''    suspend fun markNotificationRead(notificationId: String) {
+        client.postgrest.rpc<JsonObject>("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })
+    }''',
+'''    suspend fun markNotificationRead(notificationId: String) {
+        val params = buildJsonObject { put("p_notification_id", notificationId) }
+        client.postgrest.rpc("mawja_mark_notification_read", params)
+    }'''
 )
 s=s.replace(
-    'client.postgrest.rpc("mawja_mark_conversation_read",',
-    'client.postgrest.rpc<JsonObject>("mawja_mark_conversation_read",'
+'''    suspend fun markConversationRead(conversationId: String) {
+        client.postgrest.rpc<JsonObject>("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })
+    }''',
+'''    suspend fun markConversationRead(conversationId: String) {
+        val params = buildJsonObject { put("p_conversation_id", conversationId) }
+        client.postgrest.rpc("mawja_mark_conversation_read", params)
+    }'''
 )
 s=s.replace(
-    '''return client.from("profiles").select {
+'''return client.from("profiles").select {
         filter { isIn("id", ids) }
     }.decodeList()''',
-    '''return client.from("profiles").select {
+'''return client.from("profiles").select {
         filter { isIn("id", ids) }
     }.decodeList<Profile>()'''
 )
