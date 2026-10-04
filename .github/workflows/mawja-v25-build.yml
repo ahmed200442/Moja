@@ -65,16 +65,16 @@ jobs:
 
           repo=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
           s=repo.read_text()
-          needed=[
-              "import io.github.jan.supabase.auth.auth",
-              "import io.github.jan.supabase.postgrest.postgrest",
-              "import io.github.jan.supabase.functions.functions",
-          ]
-          for imp in reversed(needed):
-              if imp not in s:
-                  s=imp+"\n"+s
           s=s.replace("import io.github.jan.supabase.auth.providers.Email", "import io.github.jan.supabase.auth.providers.builtin.Email")
-          s=s.replace("import io.github.jan.supabase.functions.invoke\n", "")
+          s=s.replace("import io.github.jan.supabase.functions.invoke\\n", "")
+          package_line="package com.mawja.app.data\\n"
+          body=s[len(package_line):] if s.startswith(package_line) else s
+          imports="import io.github.jan.supabase.auth.auth\\nimport io.github.jan.supabase.postgrest.postgrest\\nimport io.github.jan.supabase.functions.functions\\n"
+          if s.startswith(package_line):
+              for imp in reversed(imports.splitlines(keepends=True)):
+                  if imp not in body:
+                      body=imp+body
+              s=package_line+body
           repo.write_text(s)
 
           main=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
