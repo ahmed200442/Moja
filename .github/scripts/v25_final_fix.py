@@ -27,46 +27,45 @@ if "import io.ktor.client.call.body" not in s:
         "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject",
     )
 
-# Avoid nested lambda type inference by materializing RPC parameters first.
-s=s.replace(
-'''    suspend fun registerPushToken(token: String, platform: String = "android") {
-        client.postgrest.rpc<JsonObject>("mawja_register_push_token", buildJsonObject {
-            put("p_token", token)
-            put("p_platform", platform)
-        })
-    }''',
-'''    suspend fun registerPushToken(token: String, platform: String = "android") {
+# Replace the affected functions by range so formatting cannot block the fix.
+start=s.index("    suspend fun registerPushToken")
+end=s.index("    suspend fun markNotificationRead", start)
+s=s[:start]+"""    suspend fun registerPushToken(token: String, platform: String = "android") {
         val params = buildJsonObject {
             put("p_token", token)
             put("p_platform", platform)
         }
         client.postgrest.rpc("mawja_register_push_token", params)
-    }'''
-)
-s=s.replace(
-'''    suspend fun markNotificationRead(notificationId: String) {
-        client.postgrest.rpc<JsonObject>("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })
-    }''',
-'''    suspend fun markNotificationRead(notificationId: String) {
+    }
+
+"""+s[end:]
+
+start=s.index("    suspend fun markNotificationRead")
+end=s.index("    suspend fun notificationRoute", start)
+s=s[:start]+"""    suspend fun markNotificationRead(notificationId: String) {
         val params = buildJsonObject { put("p_notification_id", notificationId) }
         client.postgrest.rpc("mawja_mark_notification_read", params)
-    }'''
-)
-s=s.replace(
-'''    suspend fun markConversationRead(conversationId: String) {
-        client.postgrest.rpc<JsonObject>("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })
-    }''',
-'''    suspend fun markConversationRead(conversationId: String) {
+    }
+
+"""+s[end:]
+
+start=s.index("    suspend fun profilesByIds")
+end=s.index("    suspend fun markConversationRead", start)
+s=s[:start]+"""    suspend fun profilesByIds(ids: List<String>): List<Profile> {
+        if (ids.isEmpty()) return emptyList()
+        return client.from("profiles").select {
+            filter { isIn("id", ids) }
+        }.decodeList<Profile>()
+    }
+
+"""+s[end:]
+
+start=s.index("    suspend fun markConversationRead")
+end=s.index("    suspend fun setPresence", start)
+s=s[:start]+"""    suspend fun markConversationRead(conversationId: String) {
         val params = buildJsonObject { put("p_conversation_id", conversationId) }
         client.postgrest.rpc("mawja_mark_conversation_read", params)
-    }'''
-)
-s=s.replace(
-'''return client.from("profiles").select {
-        filter { isIn("id", ids) }
-    }.decodeList()''',
-'''return client.from("profiles").select {
-        filter { isIn("id", ids) }
-    }.decodeList<Profile>()'''
-)
+    }
+
+"""+s[end:]
 p.write_text(s)
