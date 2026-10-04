@@ -79,7 +79,7 @@ jobs:
                   "import io.github.jan.supabase.postgrest.postgrest",
                   "import io.github.jan.supabase.functions.functions",
               ]
-          repo.write_text("\\n".join(cleaned)+"\\n")
+          repo.write_text(chr(10).join(cleaned)+chr(10))
 
           main=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
           s=main.read_text()
