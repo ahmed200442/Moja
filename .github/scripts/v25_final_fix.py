@@ -50,15 +50,17 @@ s=s.replace("""        val pushParams: JsonObject = buildJsonObject {
             put("p_token", token)
             put("p_platform", platform)
         }
-        client.postgrest.rpc("mawja_register_push_token", pushParams)""","""        client.from("push_tokens").upsert(buildJsonObject {
+        client.postgrest.rpc("mawja_register_push_token", pushParams)""","""        val pushPayload: JsonObject = buildJsonObject {
             put("user_id", userId())
             put("token", token)
             put("platform", platform)
-        })""")
-s=s.replace("""        client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()""","""        client.from("notifications").update(buildJsonObject { put("is_read", true) }) {
+        }
+        client.from("push_tokens").upsert(pushPayload)""")
+s=s.replace("""        client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()""","""        val readPayload: JsonObject = buildJsonObject { put("is_read", true) }
+        client.from("notifications").update(readPayload) {
             filter { eq("id", notificationId); eq("user_id", userId()) }
         }""")
-s=s.replace("""        client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()""","""        client.from("conversation_members").update(buildJsonObject { put("last_read_at", kotlinx.datetime.Clock.System.now().toString()) }) {
+s=s.replace("""        client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()""","""        client.from("conversation_members").update(buildJsonObject { put("last_read_at", java.time.Instant.now().toString()) }) {
             filter { eq("conversation_id", conversationId); eq("user_id", userId()) }
         }""")
 repo.write_text(s)
