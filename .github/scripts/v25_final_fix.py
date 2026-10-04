@@ -16,15 +16,26 @@ types = {
  "profile":"Profile", "wallet":"Wallet", "featuredWaves":"Wave",
  "leaderboard":"LeaderboardRow", "searchProfiles":"Profile",
  "friendships":"Friendship", "challenges":"Challenge",
- "notifications":"Notification", "inbox":"InboxRow",
- "profilesByIds":"Profile"
+ "notifications":"Notification", "inbox":"InboxRow"
 }
 for name, typ in types.items():
-    s = re.sub(r"(suspend fun "+re.escape(name)+r"([^\n]*)[^\n]*?)\.decodeList\(\)", r"\1.decodeList<"+typ+">()", s)
-for name, typ in {"profile":"Profile","wallet":"Wallet","notificationRoute":"JsonObject","setPresence":"UserPresence"}.items():
-    s = re.sub(r"(suspend fun "+re.escape(name)+r"([^\n]*)[^\n]*?)\.decodeSingle\(\)", r"\1.decodeSingle<"+typ+">()", s)
+    s = re.sub(r"(suspend fun "+re.escape(name)+r"[^\n]*?\.decodeList)\(\)", r"\1<"+typ+">()", s, count=1)
 
-s = s.replace('client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        })','client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        }).decodeSingle<Unit>()')
+s = s.replace('''.decodeList().sortedByDescending { it.created_at }''','''.decodeList<Notification>().sortedByDescending { it.created_at }''')
+s = s.replace('''.decodeList().sortedByDescending { it.last_message_at ?: it.updated_at }''','''.decodeList<InboxRow>().sortedByDescending { it.last_message_at ?: it.updated_at }''')
+s = s.replace('''return client.from("profiles").select {
+            filter { isIn("id", ids) }
+        }.decodeList()''','''return client.from("profiles").select {
+            filter { isIn("id", ids) }
+        }.decodeList<Profile>()''')
+
+s = s.replace('client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        })','client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        }).decodeSingle<Unit>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })','client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })','client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()')
 repo.write_text(s)
@@ -32,9 +43,4 @@ repo.write_text(s)
 main = Path("app/src/main/java/com/mawja/app/MainActivity.kt")
 s = main.read_text()
 s = s.replace("unreadNotifications = state.notifications.count { !it.is_read },","unreadNotifications = state.notifications.count { !it.is_read }.toLong(),")
-s = s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
-s = s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
-s = s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold)')
 main.write_text(s)
-
-# V25 final build trigger marker
