@@ -47,19 +47,26 @@ s = s.replace('client.postgrest.from("profiles").update(buildJsonObject { put("n
               'client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }.decodeSingle<Unit>()')
 
 # Replace the affected repository methods as complete blocks for deterministic Kotlin 2.2 inference.
-start = s.index("    suspend fun registerPushToken")
-end = s.index("    suspend fun markNotificationRead", start)
-s = s[:start] + """    suspend fun registerPushToken(token: String, platform: String = "android") {
-        client.postgrest.rpc<Unit>("mawja_register_push_token", buildJsonObject {
-            put("p_token", token)
-            put("p_platform", platform)
-        }).decodeSingle<Unit>()
+start = s.index("    suspend fun registerPushToken(token: String, platform: String = "android") {
+        client.postgrest.rpc(
+            function = "mawja_register_push_token",
+            parameters = buildJsonObject {
+                put("p_token", token)
+                put("p_platform", platform)
+            }
+        )
     }
 
-""" + s[end:]
+    suspend fun markNotificationRead(notificationId: String) {
+        client.postgrest.rpc(
+            function = "mawja_mark_notification_read",
+            parameters = buildJsonObject {
+                put("p_notification_id", notificationId)
+            }
+        )
+    }
 
-start = s.index("    suspend fun markNotificationRead")
-end = s.index("    suspend fun notificationRoute", start)
+    suspend fun notificationRoute", start)
 s = s[:start] + """    suspend fun markNotificationRead(notificationId: String) {
         client.postgrest.rpc<Unit>("mawja_mark_notification_read", buildJsonObject {
             put("p_notification_id", notificationId)
@@ -69,18 +76,16 @@ s = s[:start] + """    suspend fun markNotificationRead(notificationId: String) 
 """ + s[end:]
 
 start = s.index("    suspend fun profilesByIds")
-end = s.index("    suspend fun markConversationRead", start)
-s = s[:start] + """    suspend fun profilesByIds(ids: List<String>): List<Profile> {
-        if (ids.isEmpty()) return emptyList<Profile>()
-        return client.from("profiles").select {
-            filter { isIn("id", ids) }
-        }.decodeList<Profile>()
+end = s.index("    suspend fun markConversationRead(conversationId: String) {
+        client.postgrest.rpc(
+            function = "mawja_mark_conversation_read",
+            parameters = buildJsonObject {
+                put("p_conversation_id", conversationId)
+            }
+        )
     }
 
-""" + s[end:]
-
-start = s.index("    suspend fun markConversationRead")
-end = s.index("    suspend fun setPresence", start)
+    suspend fun setPresence", start)
 s = s[:start] + """    suspend fun markConversationRead(conversationId: String) {
         client.postgrest.rpc<Unit>("mawja_mark_conversation_read", buildJsonObject {
             put("p_conversation_id", conversationId)
