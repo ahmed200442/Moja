@@ -27,7 +27,7 @@ for name, typ in {"profile":"Profile","wallet":"Wallet","notificationRoute":"Jso
 s = s.replace('client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        })','client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        }).decodeSingle<Unit>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })','client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })','client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()')
-repo.write_text(s)
+s=s.replace('        }.decodeList()\n    }\n\n    suspend fun markConversationRead','        }.decodeList<Profile>()\n    }\n\n    suspend fun markConversationRead')\nrepo.write_text(s)
 
 main = Path("app/src/main/java/com/mawja/app/MainActivity.kt")
 s = main.read_text()
