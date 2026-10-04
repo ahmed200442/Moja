@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 
 # Final compatibility fixes for V25 with Kotlin 2.2 / Supabase-kt 3.5.
 p = Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
@@ -47,11 +46,49 @@ s = s.replace('''return client.from("profiles").select {
 s = s.replace('client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }',
               'client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }.decodeSingle<Unit>()')
 
-# Regex-based fallback for multiline RPC calls and generic emptyList inference.
-s = re.sub(r'(client\\.postgrest\\.rpc\("mawja_register_push_token", buildJsonObject \\{.*?put\("p_platform", platform\\)\\s*\\})', r'\\1.decodeSingle<Unit>()', s, count=1, flags=re.S)
-s = re.sub(r'(client\\.postgrest\\.rpc\("mawja_mark_notification_read", buildJsonObject \\{.*?\\})', r'\\1.decodeSingle<Unit>()', s, count=1, flags=re.S)
-s = re.sub(r'(client\\.postgrest\\.rpc\("mawja_mark_conversation_read", buildJsonObject \\{.*?\\})', r'\\1.decodeSingle<Unit>()', s, count=1, flags=re.S)
-s = s.replace('if (ids.isEmpty()) return emptyList()', 'if (ids.isEmpty()) return emptyList<Profile>()')
+# Replace the affected repository methods as complete blocks for deterministic Kotlin 2.2 inference.
+start = s.index("    suspend fun registerPushToken")
+end = s.index("    suspend fun markNotificationRead", start)
+s = s[:start] + """    suspend fun registerPushToken(token: String, platform: String = "android") {
+        client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        }).decodeSingle<Unit>()
+    }
+
+""" + s[end:]
+
+start = s.index("    suspend fun markNotificationRead")
+end = s.index("    suspend fun notificationRoute", start)
+s = s[:start] + """    suspend fun markNotificationRead(notificationId: String) {
+        client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject {
+            put("p_notification_id", notificationId)
+        }).decodeSingle<Unit>()
+    }
+
+""" + s[end:]
+
+start = s.index("    suspend fun profilesByIds")
+end = s.index("    suspend fun markConversationRead", start)
+s = s[:start] + """    suspend fun profilesByIds(ids: List<String>): List<Profile> {
+        if (ids.isEmpty()) return emptyList<Profile>()
+        return client.from("profiles").select {
+            filter { isIn("id", ids) }
+        }.decodeList<Profile>()
+    }
+
+""" + s[end:]
+
+start = s.index("    suspend fun markConversationRead")
+end = s.index("    suspend fun setPresence", start)
+s = s[:start] + """    suspend fun markConversationRead(conversationId: String) {
+        client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject {
+            put("p_conversation_id", conversationId)
+        }).decodeSingle<Unit>()
+    }
+
+""" + s[end:]
+
 p.write_text(s)
 
 # MainActivity UI/type fixes.
