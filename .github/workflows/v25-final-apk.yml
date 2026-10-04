@@ -1,19 +1,20 @@
 name: Mawja V25 Final APK
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Reconstruct V25 source
         shell: bash
@@ -23,7 +24,7 @@ jobs:
           python3 - <<'PY'
           import base64, hashlib
           s=b"".join(open("source.b64","rb").read().split())
-          assert len(s)==46252, len(s)
+          assert len(s)==46252
           raw=base64.b64decode(s, validate=True)
           assert hashlib.sha256(raw).hexdigest()=="41d0352980313a932652af1d1d13243ca52fd26a29ad9c8ad15a7e4e810f5bc6"
           open("source.zip","wb").write(raw)
@@ -37,51 +38,39 @@ jobs:
           test -f app/google-services.json
 
       - name: Install Android SDK
+        shell: bash
         run: |
-          set -e
-          yes | "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0" "platform-tools"
+          set -euo pipefail
+          SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "platform-tools"
 
-      - name: Patch build configuration
+      - name: Patch V25 source
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+
           p=Path("app/build.gradle.kts")
           s=p.read_text()
           s=s.replace("compileSdk = 35","compileSdk = 36")
           s=s.replace("compileSdk 35","compileSdk 36")
           s=s.replace("JavaVersion.VERSION_1_8","JavaVersion.VERSION_17")
-          if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
-              s += '''
-          
-          android {
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-          }
-          
-          kotlin {
-              jvmToolchain(17)
-          }
-          '''
+          if "jvmToolchain(17)" not in s:
+              s += "\n\nkotlin {\n    jvmToolchain(17)\n}\n"
           p.write_text(s)
 
           p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
           s=p.read_text()
-          s=s.replace("import io.github.jan.supabase.auth.providers.Email","import io.github.jan.supabase.auth.providers.builtin.Email")
-          if "import io.github.jan.supabase.auth.auth" not in s:
-              s=s.replace("import io.github.jan.supabase.auth.providers.builtin.Email","import io.github.jan.supabase.auth.auth\nimport io.github.jan.supabase.auth.providers.builtin.Email")
-          if "import io.github.jan.supabase.postgrest.postgrest" not in s:
-              s=s.replace("import io.github.jan.supabase.postgrest.from","import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest")
-          if "import io.github.jan.supabase.functions.functions" not in s:
-              s=s.replace("import io.github.jan.supabase.functions.invoke","import io.github.jan.supabase.functions.functions\nimport io.github.jan.supabase.functions.invoke")
+          s=s.replace("import io.github.jan.supabase.auth.providers.Email","import io.github.jan.supabase.auth.auth\nimport io.github.jan.supabase.auth.providers.builtin.Email")
           s=s.replace("import io.github.jan.supabase.functions.invoke\n","")
+          s=s.replace("import io.github.jan.supabase.postgrest.from","import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest")
+          if "import io.github.jan.supabase.functions.functions" not in s:
+              s=s.replace("import io.github.jan.supabase.postgrest.query.filter.FilterOperation","import io.github.jan.supabase.functions.functions\nimport io.github.jan.supabase.postgrest.query.filter.FilterOperation")
           if "import io.ktor.client.call.body" not in s:
               s=s.replace("import kotlinx.serialization.json.JsonObject","import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
-          # Kotlin 2.2 requires an explicit response type for side-effect RPC calls.
           s=s.replace('''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
             put("p_token", token)
             put("p_platform", platform)
@@ -89,8 +78,8 @@ jobs:
             put("p_token", token)
             put("p_platform", platform)
         }).decodeSingle<Unit>()''')
-          s=s.replace('''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })''','''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()''')
-          s=s.replace('''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })''','''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()''')
+          s=s.replace('client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })','client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()')
+          s=s.replace('client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })','client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()')
           p.write_text(s)
 
           p=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
@@ -98,34 +87,13 @@ jobs:
           s=s.replace("unreadNotifications = state.notifications.count { !it.is_read },","unreadNotifications = state.notifications.count { !it.is_read }.toLong(),")
           s=s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
           s=s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
-          s=s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold)')
+          s=s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
           if "fun ChallengeRow(" not in s:
               marker="@Composable fun RankRow(name: String, score: String) {"
-              insert='''@Composable
-          fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
-              Card(colors = CardDefaults.cardColors(containerColor = Surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
-                  Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                      Column(Modifier.weight(1f)) {
-                          Text(title, fontWeight = FontWeight.Bold)
-                          Text("النتيجة: $score", color = Color.Gray, fontSize = 12.sp)
-                      }
-                      FilledTonalButton(onClick = onBuzz) {
-                          Icon(Icons.Default.Bolt, contentDescription = null)
-                          Spacer(Modifier.width(5.dp))
-                          Text("Buzz")
-                      }
-                  }
-              }
-          }
-
-          '''
-              if marker not in s: raise SystemExit("ChallengeRow marker missing")
+              insert="@Composable\nfun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {\n    Card(colors = CardDefaults.cardColors(containerColor = Surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {\n        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {\n            Column(Modifier.weight(1f)) {\n                Text(title, fontWeight = FontWeight.Bold)\n                Text(\"النتيجة: $score\", color = Color.Gray, fontSize = 12.sp)\n            }\n            FilledTonalButton(onClick = onBuzz) {\n                Icon(Icons.Default.Bolt, contentDescription = null)\n                Spacer(Modifier.width(5.dp))\n                Text(\"Buzz\")\n            }\n        }\n    }\n}\n\n"
+              if marker not in s:
+                  raise SystemExit("ChallengeRow marker missing")
               s=s.replace(marker,insert+marker,1)
-          s=s.replace('client.postgrest.rpc("mawja_register_push_token", buildJsonObject {','client.postgrest.rpc("mawja_register_push_token", buildJsonObject {')
-          s=s.replace('put("p_platform", platform)\n        })','put("p_platform", platform)\n        }).decodeSingle<Unit>()')
-          s=s.replace('client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })','client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()')
-          s=s.replace('client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })','client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()')
-          s=s.replace('filter { isIn("id", ids) }\n        }.decodeList()','filter { isIn("id", ids) }\n        }.decodeList<Profile>()')
           p.write_text(s)
           PY
 
@@ -140,7 +108,8 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Build release APK
+      - name: Build Release APK
+        shell: bash
         run: |
           set -euo pipefail
           gradle --no-daemon --stacktrace clean assembleRelease
@@ -151,7 +120,7 @@ jobs:
           sha256sum Mawja-V25-release.apk > Mawja-V25-release.apk.sha256
           unzip -tq Mawja-V25-release.apk
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Mawja-V25-release
