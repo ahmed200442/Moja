@@ -72,6 +72,23 @@ jobs:
           gs=gradle.read_text()
           gs=gs.replace("compileSdk = 35", "compileSdk = 36")
           gs=gs.replace("compileSdk 35", "compileSdk 36")
+          # Align Java and Kotlin JVM targets for Kotlin 2.2 / Gradle 8.13.
+          # The V25 source defaults Java compilation to 1.8 while Kotlin targets 17.
+          if "compileOptions" in gs:
+              gs=gs.replace("JavaVersion.VERSION_1_8", "JavaVersion.VERSION_17")
+          else:
+              gs=gs.replace("android {", """android {
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }""", 1)
+          if "jvmToolchain(" not in gs:
+              gs += """
+
+kotlin {
+    jvmToolchain(17)
+}
+"""
           gradle.write_text(gs)
 
           main=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
