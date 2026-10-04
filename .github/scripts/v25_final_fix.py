@@ -80,6 +80,18 @@ s = replace_between(s, "    suspend fun setPresence(", "    fun presenceFlow(", 
 
 '''.replace('None','null'))
 
+s = s.replace("import kotlinx.serialization.json.JsonObject", "import kotlinx.serialization.json.JsonObject\nimport kotlinx.serialization.json.JsonPrimitive")
+s = replace_between(s, "    suspend fun sendMessage(", "    suspend fun completeWave(", '''    suspend fun sendMessage(conversationId: String, body: String): JsonObject {
+        val payload = JsonObject(mapOf(
+            "action" to JsonPrimitive("send_message"),
+            "conversation_id" to JsonPrimitive(conversationId),
+            "body" to JsonPrimitive(body.trim())
+        ))
+        return client.functions.invoke("mawja-push", body = payload).body<JsonObject>()
+    }
+
+''')
+
 repo.write_text(s)
 
 # MainActivity compile fixes.
