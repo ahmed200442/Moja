@@ -72,7 +72,14 @@ jobs:
           p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
           s=p.read_text()
           s=s.replace("import io.github.jan.supabase.auth.providers.Email","import io.github.jan.supabase.auth.providers.builtin.Email")
-          s=s.replace("import io.github.jan.supabase.functions.invoke\n","")
+          if "import io.github.jan.supabase.auth.auth" not in s:
+              s=s.replace("import io.github.jan.supabase.auth.providers.builtin.Email","import io.github.jan.supabase.auth.auth\nimport io.github.jan.supabase.auth.providers.builtin.Email")
+          if "import io.github.jan.supabase.postgrest.postgrest" not in s:
+              s=s.replace("import io.github.jan.supabase.postgrest.from","import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest")
+          if "import io.github.jan.supabase.functions.functions" not in s:
+              s=s.replace("import io.github.jan.supabase.functions.invoke","import io.github.jan.supabase.functions.functions\nimport io.github.jan.supabase.functions.invoke")
+          if "import io.ktor.client.call.body" not in s:
+              s=s.replace("import kotlinx.serialization.json.JsonObject","import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
           p.write_text(s)
 
           p=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
@@ -80,7 +87,29 @@ jobs:
           s=s.replace("unreadNotifications = state.notifications.count { !it.is_read },","unreadNotifications = state.notifications.count { !it.is_read }.toLong(),")
           s=s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
           s=s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
-          s=s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
+          s=s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold)')
+          if "fun ChallengeRow(" not in s:
+              marker="@Composable fun RankRow(name: String, score: String) {"
+              insert='''@Composable
+          fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
+              Card(colors = CardDefaults.cardColors(containerColor = Surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                  Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                      Column(Modifier.weight(1f)) {
+                          Text(title, fontWeight = FontWeight.Bold)
+                          Text("النتيجة: $score", color = Color.Gray, fontSize = 12.sp)
+                      }
+                      FilledTonalButton(onClick = onBuzz) {
+                          Icon(Icons.Default.Bolt, contentDescription = null)
+                          Spacer(Modifier.width(5.dp))
+                          Text("Buzz")
+                      }
+                  }
+              }
+          }
+
+          '''
+              if marker not in s: raise SystemExit("ChallengeRow marker missing")
+              s=s.replace(marker,insert+marker,1)
           p.write_text(s)
           PY
 
