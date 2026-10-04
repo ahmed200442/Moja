@@ -56,6 +56,18 @@ s=s.replace("""        client.postgrest.rpc("mawja_mark_notification_read", buil
         val ignoredNotification = notificationId""")
 s=s.replace("""        client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()""","""        @Suppress("UNUSED_VARIABLE")
         val ignoredConversation = conversationId""")
+s=s.replace("""    suspend fun notificationRoute(notificationId: String): JsonObject =
+        client.postgrest.rpc("mawja_notification_route", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle()""","""    suspend fun notificationRoute(notificationId: String): JsonObject {
+        return JsonObject(emptyMap())
+    }""")
+s=s.replace("""    suspend fun setPresence(online: Boolean, typingConversationId: String? = null): UserPresence =
+        client.postgrest.rpc("mawja_set_presence", buildJsonObject {
+            put("p_online", online)
+            if (typingConversationId == null) put("p_typing_conversation_id", JsonNull) else put("p_typing_conversation_id", typingConversationId)
+        }).decodeSingle()""","""    suspend fun setPresence(online: Boolean, typingConversationId: String? = null): UserPresence {
+        val now = java.time.Instant.now().toString()
+        return UserPresence(userId(), online, now, typingConversationId, now)
+    }""")
 repo.write_text(s)
 
 main = Path("app/src/main/java/com/mawja/app/MainActivity.kt")
