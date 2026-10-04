@@ -36,3 +36,5 @@ s = s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))','T
 s = s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
 s = s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold)')
 main.write_text(s)
+
+# V25 final build trigger marker
