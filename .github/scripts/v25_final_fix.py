@@ -71,7 +71,7 @@ s = s[:start] + """    suspend fun markNotificationRead(notificationId: String) 
 start = s.index("    suspend fun inbox")
 end = s.index("    suspend fun profilesByIds", start)
 s = s[:start] + """    suspend fun inbox(): List<InboxRow> =
-        client.from("mawja_inbox").select(columns = Columns.list("user_id", "conversation_id", "peer_id", "created_at", "updated_at", "last_read_at", "unread_count", "last_message", "last_message_at")).decodeList<InboxRow>()
+        client.from("mawja_inbox").select().decodeList<InboxRow>()
             .filter { it.user_id == userId() }
             .sortedByDescending { it.last_message_at ?: it.updated_at }
 
