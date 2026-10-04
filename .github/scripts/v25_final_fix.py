@@ -34,6 +34,6 @@ patterns = [
     r'(client\\.postgrest\\.rpc\\("mawja_mark_conversation_read",.*?\\))',
 ]
 for pat in patterns:
-    s = re.sub(pat + r'(?!\\.decodeSingle)', r'\\1.decodeSingle<Unit>()', s, flags=re.S)
+    s = re.sub(pat + r'(?!\\.decodeSingle)', r'\1.decodeSingle<Unit>()', s, flags=re.S)
 
 p.write_text(s)
