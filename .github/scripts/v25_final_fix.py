@@ -25,14 +25,14 @@ s = s.replace('''client.postgrest.rpc<Unit>("mawja_register_push_token", buildJs
             put("p_token", token)
             put("p_platform", platform)
         })''',
-              '''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+              '''client.postgrest.rpc<Unit>("mawja_register_push_token", buildJsonObject {
             put("p_token", token)
             put("p_platform", platform)
         }).decodeSingle<Unit>()''')
 s = s.replace('''client.postgrest.rpc<Unit>("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })''',
-              '''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()''')
+              '''client.postgrest.rpc<Unit>("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()''')
 s = s.replace('''client.postgrest.rpc<Unit>("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })''',
-              '''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()''')
+              '''client.postgrest.rpc<Unit>("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()''')
 
 # Explicit list type for profile query.
 s = s.replace('''return client.from("profiles").select {
