@@ -68,6 +68,8 @@ s=s.replace("""    suspend fun setPresence(online: Boolean, typingConversationId
         val now = java.time.Instant.now().toString()
         return UserPresence(userId(), online, now, typingConversationId, now)
     }""")
+s=s.replace("}.decodeList().sortedByDescending { it.created_at }","}.decodeList<Notification>().sortedByDescending { it.created_at }")
+s=s.replace("}.decodeList().sortedByDescending { it.last_message_at ?: it.updated_at }","}.decodeList<InboxRow>().sortedByDescending { it.last_message_at ?: it.updated_at }")
 repo.write_text(s)
 
 main = Path("app/src/main/java/com/mawja/app/MainActivity.kt")
