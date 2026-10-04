@@ -1,111 +1,85 @@
 from pathlib import Path
 
+# Final compatibility fixes for V25 with Kotlin 2.2 / Supabase-kt 3.5.
 p = Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
 s = p.read_text()
 
-s = s.replace(
-    "import io.github.jan.supabase.auth.providers.builtin.Email",
-    "import io.github.jan.supabase.auth.auth\nimport io.github.jan.supabase.auth.providers.builtin.Email",
-)
+# Supabase auth/functions/postgrest extension imports.
+s = s.replace("import io.github.jan.supabase.auth.providers.Email",
+              "import io.github.jan.supabase.auth.auth\nimport io.github.jan.supabase.auth.providers.builtin.Email")
+s = s.replace("import io.github.jan.supabase.auth.auth\nimport io.github.jan.supabase.auth.auth\n",
+              "import io.github.jan.supabase.auth.auth\n")
 s = s.replace("import io.github.jan.supabase.functions.invoke\n", "")
-s = s.replace(
-    "import io.github.jan.supabase.postgrest.from",
-    "import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest",
-)
-s = s.replace(
-    "import io.github.jan.supabase.postgrest.query.filter.FilterOperation",
-    "import io.github.jan.supabase.functions.functions\nimport io.github.jan.supabase.postgrest.query.filter.FilterOperation",
-)
-s = s.replace(
-    "import kotlinx.serialization.json.JsonObject",
-    "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject",
-)
+if "import io.github.jan.supabase.functions.functions" not in s:
+    s = s.replace("import io.github.jan.supabase.postgrest.from",
+                  "import io.github.jan.supabase.functions.functions\nimport io.github.jan.supabase.postgrest.from")
+if "import io.github.jan.supabase.postgrest.postgrest" not in s:
+    s = s.replace("import io.github.jan.supabase.postgrest.from",
+                  "import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest")
+if "import io.ktor.client.call.body" not in s:
+    s = s.replace("import kotlinx.serialization.json.JsonObject",
+                  "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
 
-# Typed serializable RPC parameters.
-if "import kotlinx.serialization.Serializable" not in s:
-    s = s.replace(
-        "import kotlinx.serialization.json.JsonObject",
-        "import kotlinx.serialization.Serializable\nimport kotlinx.serialization.json.JsonObject",
-    )
-
-if "data class RegisterPushTokenParams" not in s:
-    s = s.replace(
-        "class MawjaRepository {",
-        """@Serializable
-data class RegisterPushTokenParams(val p_token: String, val p_platform: String)
-
-@Serializable
-data class NotificationReadParams(val p_notification_id: String)
-
-@Serializable
-data class ConversationReadParams(val p_conversation_id: String)
-
-@Serializable
-data class PresenceParams(val p_online: Boolean, val p_typing_conversation_id: String?)
-
-class MawjaRepository {""",
-        1,
-    )
-
-start = s.index("    suspend fun registerPushToken")
-end = s.index("    suspend fun markNotificationRead", start)
-s = s[:start] + """    suspend fun registerPushToken(token: String, platform: String = "android") {
-        val params: JsonObject = buildJsonObject {
+# Explicit result types where Kotlin 2.2 cannot infer the RPC generic.
+s = s.replace('''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
             put("p_token", token)
             put("p_platform", platform)
+        })''',
+              '''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        }).decodeSingle<Unit>()''')
+s = s.replace('''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })''',
+              '''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()''')
+s = s.replace('''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })''',
+              '''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()''')
+
+# Explicit list type for profile query.
+s = s.replace('''return client.from("profiles").select {
+        filter { isIn("id", ids) }
+    }.decodeList()''',
+              '''return client.from("profiles").select {
+        filter { isIn("id", ids) }
+    }.decodeList<Profile>()''')
+
+# Explicit Unit for profile update if present in the source.
+s = s.replace('client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }',
+              'client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }.decodeSingle<Unit>()')
+
+p.write_text(s)
+
+# MainActivity UI/type fixes.
+p = Path("app/src/main/java/com/mawja/app/MainActivity.kt")
+s = p.read_text()
+s = s.replace("unreadNotifications = state.notifications.count { !it.is_read },",
+              "unreadNotifications = state.notifications.count { !it.is_read }.toLong(),")
+s = s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))',
+              'Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
+s = s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))',
+              'Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
+s = s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))',
+              'Text(n.title, modifier = Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold)')
+if "fun ChallengeRow(" not in s:
+    marker = "@Composable fun RankRow(name: String, score: String) {"
+    insert = '''@Composable
+fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = Surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text("النتيجة: $score", color = Color.Gray, fontSize = 12.sp)
+            }
+            FilledTonalButton(onClick = onBuzz) {
+                Icon(Icons.Default.Bolt, contentDescription = null)
+                Spacer(Modifier.width(5.dp))
+                Text("Buzz")
+            }
         }
-        client.postgrest.rpc("mawja_register_push_token", params)
     }
+}
 
-""" + s[end:]
-
-start = s.index("    suspend fun markNotificationRead")
-end = s.index("    suspend fun notificationRoute", start)
-s = s[:start] + """    suspend fun markNotificationRead(notificationId: String) {
-        val params: JsonObject = buildJsonObject { put("p_notification_id", notificationId) }
-        client.postgrest.rpc("mawja_mark_notification_read", params)
-    }
-
-""" + s[end:]
-
-start = s.index("    suspend fun inbox")
-end = s.index("    suspend fun profilesByIds", start)
-s = s[:start] + """    suspend fun inbox(): List<InboxRow> =
-        client.from("mawja_inbox").select().decodeList<InboxRow>()
-            .filter { it.user_id == userId() }
-            .sortedByDescending { it.last_message_at ?: it.updated_at }
-
-""" + s[end:]
-
-start = s.index("    suspend fun profilesByIds")
-end = s.index("    suspend fun markConversationRead", start)
-s = s[:start] + """    suspend fun profilesByIds(ids: List<String>): List<Profile> {
-        if (ids.isEmpty()) return emptyList()
-        return client.from("profiles").select().decodeList<Profile>().filter { it.id in ids }
-    }
-
-""" + s[end:]
-
-start = s.index("    suspend fun markConversationRead")
-end = s.index("    suspend fun setPresence", start)
-s = s[:start] + """    suspend fun markConversationRead(conversationId: String) {
-        val params: JsonObject = buildJsonObject { put("p_conversation_id", conversationId) }
-        client.postgrest.rpc("mawja_mark_conversation_read", params)
-    }
-
-""" + s[end:]
-
-start = s.index("    suspend fun setPresence")
-end = s.index("    fun presenceFlow", start)
-s = s[:start] + """    suspend fun setPresence(online: Boolean, typingConversationId: String? = null): UserPresence {
-        val params: JsonObject = buildJsonObject {
-            put("p_online", online)
-            if (typingConversationId == null) put("p_typing_conversation_id", JsonNull)
-            else put("p_typing_conversation_id", typingConversationId)
-        }
-        return client.postgrest.rpc("mawja_set_presence", params).decodeSingle<UserPresence>()
-    }
-
-""" + s[end:]
-
+'''
+    if marker not in s:
+        raise SystemExit("ChallengeRow marker missing")
+    s = s.replace(marker, insert + marker, 1)
 p.write_text(s)
