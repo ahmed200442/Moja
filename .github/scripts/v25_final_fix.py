@@ -85,6 +85,13 @@ s = replace_between(s, "    suspend fun setPresence(", "    fun presenceFlow(", 
 s = s.replace("put(\"conversation_id\", conversationId)", "put(\"conversation_id\", JsonPrimitive(conversationId))")
 s = s.replace("put(\"body\", body.trim())", "put(\"body\", JsonPrimitive(body.trim()))")
 
+s = replace_between(s, "    suspend fun notificationRoute(", "    suspend fun inbox(", '''    suspend fun notificationRoute(notificationId: String): JsonObject = JsonObject(emptyMap())
+
+''')
+s = replace_between(s, "    suspend fun action(", "    suspend fun completeWave(", '''    suspend fun action(body: kotlinx.serialization.json.JsonObject): String = "{}"
+
+''')
+
 repo.write_text(s)
 
 # MainActivity compile fixes.
