@@ -28,12 +28,16 @@ if "import io.ktor.client.call.body" not in s:
     )
 
 # Kotlin 2.2 needs explicit RPC result types for side-effect calls.
-patterns = [
-    r'(client\\.postgrest\\.rpc\\("mawja_register_push_token",.*?\\n\\s*\\}\\))',
-    r'(client\\.postgrest\\.rpc\\("mawja_mark_notification_read",.*?\\))',
-    r'(client\\.postgrest\\.rpc\\("mawja_mark_conversation_read",.*?\\))',
-]
-for pat in patterns:
-    s = re.sub(pat + r'(?!\\.decodeSingle)', r'\1.decodeSingle<Unit>()', s, flags=re.S)
-
+s=s.replace(
+    '        })\\n    }\\n\\n    suspend fun markNotificationRead',
+    '        }).decodeSingle<Unit>()\\n    }\\n\\n    suspend fun markNotificationRead'
+)
+s=s.replace(
+    'client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })',
+    'client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()'
+)
+s=s.replace(
+    'client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })',
+    'client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()'
+)
 p.write_text(s)
