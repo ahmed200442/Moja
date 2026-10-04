@@ -3,7 +3,7 @@ import re
 repo=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
 s=repo.read_text()
 if not s.startswith("@file:OptIn"):
-    s="@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)\n"+s
+    s="@file:OptIn(io.github.jan.supabase.annotations.SupabaseExperimental::class, kotlinx.serialization.ExperimentalSerializationApi::class)\n"+s
 s=s.replace("import io.github.jan.supabase.auth.providers.Email","import io.github.jan.supabase.auth.auth\nimport io.github.jan.supabase.auth.providers.builtin.Email")
 s=s.replace("import io.github.jan.supabase.functions.invoke","import io.github.jan.supabase.functions.functions")
 if "import io.github.jan.supabase.postgrest.postgrest" not in s:
