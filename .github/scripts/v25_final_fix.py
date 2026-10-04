@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 # Final compatibility fixes for V25 with Kotlin 2.2 / Supabase-kt 3.5.
 p = Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
@@ -46,6 +47,11 @@ s = s.replace('''return client.from("profiles").select {
 s = s.replace('client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }',
               'client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }.decodeSingle<Unit>()')
 
+# Regex-based fallback for multiline RPC calls and generic emptyList inference.
+s = re.sub(r'(client\\.postgrest\\.rpc\("mawja_register_push_token", buildJsonObject \\{.*?put\("p_platform", platform\\)\\s*\\})', r'\\1.decodeSingle<Unit>()', s, count=1, flags=re.S)
+s = re.sub(r'(client\\.postgrest\\.rpc\("mawja_mark_notification_read", buildJsonObject \\{.*?\\})', r'\\1.decodeSingle<Unit>()', s, count=1, flags=re.S)
+s = re.sub(r'(client\\.postgrest\\.rpc\("mawja_mark_conversation_read", buildJsonObject \\{.*?\\})', r'\\1.decodeSingle<Unit>()', s, count=1, flags=re.S)
+s = s.replace('if (ids.isEmpty()) return emptyList()', 'if (ids.isEmpty()) return emptyList<Profile>()')
 p.write_text(s)
 
 # MainActivity UI/type fixes.
