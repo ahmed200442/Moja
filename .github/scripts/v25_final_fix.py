@@ -34,6 +34,18 @@ s=s.replace("""        }.decodeList()
     }
 
     suspend fun markConversationRead""")
+s=s.replace("""client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        }).decodeSingle<kotlinx.serialization.json.JsonObject>()""","""val pushParams: JsonObject = buildJsonObject {
+            put("p_token", token)
+            put("p_platform", platform)
+        }
+        client.postgrest.rpc("mawja_register_push_token", pushParams)""")
+s=s.replace("""client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<kotlinx.serialization.json.JsonObject>()""","""val notificationParams: JsonObject = buildJsonObject { put("p_notification_id", notificationId) }
+        client.postgrest.rpc("mawja_mark_notification_read", notificationParams)""")
+s=s.replace("""client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<kotlinx.serialization.json.JsonObject>()""","""val conversationParams: JsonObject = buildJsonObject { put("p_conversation_id", conversationId) }
+        client.postgrest.rpc("mawja_mark_conversation_read", conversationParams)""")
 repo.write_text(s)
 
 main = Path("app/src/main/java/com/mawja/app/MainActivity.kt")
