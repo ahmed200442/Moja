@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 p = Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
 s = p.read_text()
@@ -27,23 +28,12 @@ if "import io.ktor.client.call.body" not in s:
     )
 
 # Kotlin 2.2 needs explicit RPC result types for side-effect calls.
-s = s.replace(
-'''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
-        put("p_token", token)
-        put("p_platform", platform)
-    })''',
-'''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
-        put("p_token", token)
-        put("p_platform", platform)
-    }).decodeSingle<Unit>()'''
-)
-s = s.replace(
-    'client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })',
-    'client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()',
-)
-s = s.replace(
-    'client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })',
-    'client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()',
-)
+patterns = [
+    r'(client\\.postgrest\\.rpc\\("mawja_register_push_token",.*?\\n\\s*\\}\\))',
+    r'(client\\.postgrest\\.rpc\\("mawja_mark_notification_read",.*?\\))',
+    r'(client\\.postgrest\\.rpc\\("mawja_mark_conversation_read",.*?\\))',
+]
+for pat in patterns:
+    s = re.sub(pat + r'(?!\\.decodeSingle)', r'\\1.decodeSingle<Unit>()', s, flags=re.S)
 
 p.write_text(s)
