@@ -11,13 +11,19 @@ if "import io.github.jan.supabase.postgrest.postgrest" not in s:
     s = s.replace("import io.github.jan.supabase.postgrest.from", "import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest")
 if "import io.ktor.client.call.body" not in s:
     s = s.replace("import kotlinx.serialization.json.JsonObject", "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
-for name, typ in {"featuredWaves":"Wave","leaderboard":"LeaderboardRow","searchProfiles":"Profile","friendships":"Friendship","challenges":"Challenge","notifications":"Notification","inbox":"InboxRow"}.items():
-    s = re.sub(r"(suspend fun "+re.escape(name)+r"[^\n]*?\.decodeList)\(\)", r"\1<"+typ+r">()", s, count=1)
-s = s.replace('''return client.from("profiles").select {
-            filter { isIn("id", ids) }
-        }.decodeList()''','''return client.from("profiles").select {
-            filter { isIn("id", ids) }
-        }.decodeList<Profile>()''')
+
+types = {
+ "profile":"Profile", "wallet":"Wallet", "featuredWaves":"Wave",
+ "leaderboard":"LeaderboardRow", "searchProfiles":"Profile",
+ "friendships":"Friendship", "challenges":"Challenge",
+ "notifications":"Notification", "inbox":"InboxRow",
+ "profilesByIds":"Profile"
+}
+for name, typ in types.items():
+    s = re.sub(r"(suspend fun "+re.escape(name)+r"([^\n]*)[^\n]*?)\.decodeList\(\)", r"\1.decodeList<"+typ+">()", s)
+
+for name, typ in {"profile":"Profile","wallet":"Wallet","notificationRoute":"JsonObject","setPresence":"UserPresence"}.items():
+    s = re.sub(r"(suspend fun "+re.escape(name)+r"([^\n]*)[^\n]*?)\.decodeSingle\(\)", r"\1.decodeSingle<"+typ+">()", s)
 s = s.replace('client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        })','client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        }).decodeSingle<Unit>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })','client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })','client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()')
@@ -29,4 +35,10 @@ s = s.replace("unreadNotifications = state.notifications.count { !it.is_read },"
 s = s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
 s = s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
 s = s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold)')
+if "fun ChallengeRow(" not in s:
+    marker="@Composable fun RankRow(name: String, score: String) {"
+    insert="@Composable\nfun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {\n    Card(colors = CardDefaults.cardColors(containerColor = Surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {\n        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {\n            Column(Modifier.weight(1f)) {\n                Text(title, fontWeight = FontWeight.Bold)\n                Text(\"النتيجة: $score\", color = Color.Gray, fontSize = 12.sp)\n            }\n            FilledTonalButton(onClick = onBuzz) {\n                Icon(Icons.Default.Bolt, contentDescription = null)\n                Spacer(Modifier.width(5.dp))\n                Text(\"Buzz\")\n            }\n        }\n    }\n}\n\n"
+    if marker not in s:
+        raise SystemExit("ChallengeRow marker missing")
+    s=s.replace(marker,insert+marker,1)
 main.write_text(s)
