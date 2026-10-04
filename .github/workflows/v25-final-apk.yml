@@ -17,6 +17,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Preserve V25 patch script
+        shell: bash
+        run: cp .github/scripts/v25_final_fix.py /tmp/v25_final_fix.py
+
       - name: Reconstruct V25 source
         shell: bash
         run: |
@@ -77,7 +81,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 .github/scripts/v25_final_fix.py
+          python3 /tmp/v25_final_fix.py
 
       - name: Java 17
         uses: actions/setup-java@v4
