@@ -69,6 +69,9 @@ s = replace_between(
 '''
 )
 
+s = s.replace("    }.decodeList().sortedByDescending { it.created_at }", "    }.decodeList<Notification>().sortedByDescending { it.created_at }")
+s = s.replace("    }.decodeList().sortedByDescending { it.last_message_at ?: it.updated_at }", "    }.decodeList<InboxRow>().sortedByDescending { it.last_message_at ?: it.updated_at }")
+
 repo.write_text(s)
 
 # MainActivity compile fixes.
