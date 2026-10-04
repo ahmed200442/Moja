@@ -123,12 +123,48 @@ jobs:
           set -euo pipefail
           python3 .github/scripts/v25_final_fix.py
 
-          # Supabase Functions invoke is an extension and must remain imported after final fix.
-          p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
-          s=p.read_text()
-          if "import io.github.jan.supabase.functions.invoke" not in s:
-              s=s.replace("import io.github.jan.supabase.functions.functions", "import io.github.jan.supabase.functions.functions\nimport io.github.jan.supabase.functions.invoke")
-          p.write_text(s)
+          # Restore the Supabase Functions invoke extension import removed by the final-fix script.
+          if ! grep -q '^import io.github.jan.supabase.functions.invoke
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build release APK
+        run: |
+          set -o pipefail
+          set +e
+          gradle --no-daemon --stacktrace clean assembleRelease 2>&1 | tee build.log
+          rc=${PIPESTATUS[0]}
+          echo "===== COMPILER ERROR SUMMARY ====="
+          grep -E "e: |error:|Unresolved reference|Cannot infer|Type mismatch|Compilation error" build.log | tail -n 120 || true
+          echo "===== END COMPILER ERROR SUMMARY ====="
+          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)
+          test -n "$APK"
+          test -s "$APK"
+          cp "$APK" Mawja-V25-release.apk
+          sha256sum Mawja-V25-release.apk > Mawja-V25-release.apk.sha256
+          unzip -tq Mawja-V25-release.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mawja-V25-release
+          path: |
+            Mawja-V25-release.apk
+            Mawja-V25-release.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+ app/src/main/java/com/mawja/app/data/MawjaRepository.kt; then
+            sed -i '/^import io.github.jan.supabase.functions.functions$/a import io.github.jan.supabase.functions.invoke' app/src/main/java/com/mawja/app/data/MawjaRepository.kt
+          fi
 
       - name: Java 17
         uses: actions/setup-java@v4
