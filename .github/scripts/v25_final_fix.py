@@ -46,6 +46,7 @@ for a,b in {
 'Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))':'Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)',
 'Text("الإشعارات", Modifier.weight(1f), fontWeight = FontWeight.Black)':'Text("الإشعارات", modifier = Modifier.weight(1f), fontWeight = FontWeight.Black)',
 'Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))':'Text(n.title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)',
+'unreadNotifications = state.notifications.count { !it.is_read },':'unreadNotifications = state.notifications.count { !it.is_read }.toLong(),'
 }.items(): m=m.replace(a,b)
 if "fun ChallengeRow(" not in m:
     marker="@Composable fun RankRow(name: String, score: String) {"
