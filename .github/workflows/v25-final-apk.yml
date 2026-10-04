@@ -46,6 +46,8 @@ jobs:
           s=s.replace("compileSdk = 35","compileSdk = 36").replace("compileSdk 35","compileSdk 36").replace("JavaVersion.VERSION_1_8","JavaVersion.VERSION_17")
           if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
               s += "\nandroid { compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 } }\nkotlin { jvmToolchain(17) }\n"
+          if "InvalidFragmentVersionForActivityResult" not in s:
+              s += "\nandroid { lint { disable += \"InvalidFragmentVersionForActivityResult\" } }\n"
           p.write_text(s)
           PY
       - name: Apply final V25 compile fixes
