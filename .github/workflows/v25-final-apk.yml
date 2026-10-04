@@ -46,15 +46,12 @@ jobs:
           s=s.replace("compileSdk = 35","compileSdk = 36").replace("compileSdk 35","compileSdk 36").replace("JavaVersion.VERSION_1_8","JavaVersion.VERSION_17")
           if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
               s += "\nandroid { compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 } }\nkotlin { jvmToolchain(17) }\n"
-          if "InvalidFragmentVersionForActivityResult" not in s:
-              s += "\nandroid { lint { disable += \"InvalidFragmentVersionForActivityResult\" } }\n"
           p.write_text(s)
           PY
       - name: Apply final V25 compile fixes
         run: |
           set -euo pipefail
           python3 /tmp/v25_final_fix.py
-          sed -n '40,85p' app/src/main/java/com/mawja/app/data/MawjaRepository.kt
       - name: Java 17
         uses: actions/setup-java@v4
         with:
@@ -65,30 +62,39 @@ jobs:
         with:
           gradle-version: '8.13'
       - name: Build release APK
+        id: build
+        continue-on-error: true
         run: |
           set -o pipefail
-          set +e
           gradle --no-daemon -Pkotlin.allWarningsAsErrors=false --stacktrace clean assembleRelease 2>&1 | tee build.log
           rc=${PIPESTATUS[0]}
-          echo "===== COMPILER ERROR SUMMARY ====="
-          grep -E "e: |error:|Unresolved reference|Cannot infer|Type mismatch|Compilation error" build.log | tail -n 120 || true
-          if [ "$rc" -ne 0 ]; then exit "$rc"; fi
-          APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)
-          test -n "$APK" && test -s "$APK"
-          cp "$APK" Mawja-V25-release.apk
-          sha256sum Mawja-V25-release.apk > Mawja-V25-release.apk.sha256
-          unzip -tq Mawja-V25-release.apk
-      - name: Upload build diagnostics
+          grep -E "e: |error:|Unresolved reference|Cannot infer|Type mismatch|Compilation error" build.log | tail -n 160 > compile-errors.txt || true
+          echo "rc=$rc" > build-status.txt
+          if [ "$rc" -eq 0 ]; then
+            APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)
+            test -n "$APK" && test -s "$APK"
+            cp "$APK" Mawja-V25-release.apk
+            sha256sum Mawja-V25-release.apk > Mawja-V25-release.apk.sha256
+            unzip -tq Mawja-V25-release.apk
+          fi
+          exit "$rc"
+      - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Mawja-V25-build-diagnostics
           path: |
             build.log
+            compile-errors.txt
+            build-status.txt
             app/build/reports/
           if-no-files-found: ignore
           retention-days: 7
+      - name: Fail if build failed
+        if: steps.build.outcome == 'failure'
+        run: exit 1
       - name: Upload APK artifact
+        if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: Mawja-V25-release
