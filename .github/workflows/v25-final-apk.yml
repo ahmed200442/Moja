@@ -113,6 +113,12 @@ jobs:
           p.write_text(s)
           PY
 
+      - name: Apply final V25 compile fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/v25_final_fix.py
+
       - name: Java 17
         uses: actions/setup-java@v4
         with:
