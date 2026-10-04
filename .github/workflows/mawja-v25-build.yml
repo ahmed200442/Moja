@@ -55,13 +55,59 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "platform-tools"
 
-      - name: Patch Android build settings
+      - name: Patch V25 Kotlin/Compose sources
         shell: bash
         run: |
           set -euo pipefail
           sed -i 's/compileSdk = 35/compileSdk = 36/' app/build.gradle.kts
+
           python3 - <<'PY'
           from pathlib import Path
+
+          p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
+          s=p.read_text()
+          s=s.replace("import io.github.jan.supabase.auth.providers.Email", "import io.github.jan.supabase.auth.providers.builtin.Email")
+          s=s.replace("import io.github.jan.supabase.functions.invoke\n", "")
+          p.write_text(s)
+
+          p=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
+          s=p.read_text()
+          s=s.replace("unreadMessages = state.unreadMessages,", "unreadMessages = state.unreadMessages.toLong(),")
+          s=s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))', 'Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
+          s=s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))', 'Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
+          s=s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))', 'Text(n.title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
+          marker='@Composable fun RankRow(name: String, score: String) {'
+          if 'fun ChallengeRow(' not in s:
+              insert='''@Composable
+          fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
+              Card(
+                  colors = CardDefaults.cardColors(containerColor = Surface),
+                  shape = RoundedCornerShape(18.dp),
+                  modifier = Modifier.fillMaxWidth()
+              ) {
+                  Row(
+                      Modifier.padding(14.dp),
+                      verticalAlignment = Alignment.CenterVertically
+                  ) {
+                      Column(Modifier.weight(1f)) {
+                          Text(title, fontWeight = FontWeight.Bold)
+                          Text("النتيجة: $score", color = Color.Gray, fontSize = 12.sp)
+                      }
+                      FilledTonalButton(onClick = onBuzz) {
+                          Icon(Icons.Default.Bolt, contentDescription = null)
+                          Spacer(Modifier.width(5.dp))
+                          Text("Buzz")
+                      }
+                  }
+              }
+          }
+
+          '''
+              if marker not in s:
+                  raise SystemExit("RankRow marker missing")
+              s=s.replace(marker,insert+marker,1)
+          p.write_text(s)
+
           p=Path("app/build.gradle.kts")
           s=p.read_text()
           if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
@@ -70,6 +116,7 @@ jobs:
               s += "\n\nkotlin {\n    jvmToolchain(17)\n}\n"
           p.write_text(s)
           PY
+
           grep -n "compileSdk\|sourceCompatibility\|targetCompatibility\|jvmToolchain" app/build.gradle.kts
 
       - name: Java 21
