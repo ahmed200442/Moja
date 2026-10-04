@@ -54,7 +54,7 @@ s=replace_between(s,"    suspend fun markConversationRead(","    suspend fun set
 s=replace_between(s,"    fun presenceFlow(","    suspend fun action(","""    fun presenceFlow(userId: String) = kotlinx.coroutines.flow.emptyFlow<UserPresence>()
 
 """)
-s=replace_between(s,"    suspend fun notificationRoute(","    suspend fun inbox ","""    suspend fun notificationRoute(notificationId: String): JsonObject = JsonObject(emptyMap())
+s=replace_between(s,"    suspend fun notificationRoute(","    suspend fun inbox():","""    suspend fun notificationRoute(notificationId: String): JsonObject = JsonObject(emptyMap())
 
 """)
 s=replace_between(s,"    suspend fun action(","    suspend fun completeWave(","""    suspend fun action(body: kotlinx.serialization.json.JsonObject): String = "{}"
