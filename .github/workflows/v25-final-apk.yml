@@ -82,6 +82,10 @@ jobs:
               s=s.replace("import kotlinx.serialization.json.JsonObject","import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
           p.write_text(s)
 
+          # Avoid Kotlin 2.2 generic inference failure on update calls by decoding explicit Unit.
+          s=s.replace('client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }',
+                      'client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }.decodeSingle<Unit>()')
+
           p=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
           s=p.read_text()
           s=s.replace("unreadNotifications = state.notifications.count { !it.is_read },","unreadNotifications = state.notifications.count { !it.is_read }.toLong(),")
