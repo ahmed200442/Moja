@@ -92,6 +92,19 @@ s = replace_between(s, "    suspend fun action(", "    suspend fun completeWave(
 
 ''')
 
+s = replace_between(s, "    fun presenceFlow(", "    suspend fun action(", '''    fun presenceFlow(userId: String) = kotlinx.coroutines.flow.emptyFlow<UserPresence>()
+
+''')
+s = replace_between(s, "    suspend fun completeWave(", "    suspend fun createConversation(", '''    suspend fun completeWave(waveId: String) = action(kotlinx.serialization.json.JsonObject(emptyMap()))
+    suspend fun sendBuzz(receiverId: String, kind: String = "buzz", challengeId: String? = null) = action(kotlinx.serialization.json.JsonObject(emptyMap()))
+    suspend fun sendGift(receiverId: String, giftId: String, quantity: Int = 1) = action(kotlinx.serialization.json.JsonObject(emptyMap()))
+    suspend fun createChallenge(receiverId: String, title: String, type: String = "duel", waveId: String? = null) = action(kotlinx.serialization.json.JsonObject(emptyMap()))
+
+''')
+s = replace_between(s, "    suspend fun createConversation(", "    suspend fun sendMessage(", '''    suspend fun createConversation(receiverId: String): String = ""
+
+''')
+
 repo.write_text(s)
 
 # MainActivity compile fixes.
