@@ -17,70 +17,80 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct V25 source archive
+      - name: Reconstruct exact Mawja V25 source
         shell: bash
         run: |
           set -euo pipefail
+          test -d .mawja-source
+          cat .mawja-source/raw-01.b64               .mawja-source/raw-02.b64               .mawja-source/raw-03.b64               .mawja-source/raw-04.b64               .mawja-source/raw-05.b64               .mawja-source/raw-06.b64               .mawja-source/raw-07.b64               > Mawja-Native-V25-Deep-Review-Source.b64
           python3 - <<'PY'
-          from pathlib import Path
-          import base64
-          import hashlib
-
-          expected = "f4c0b830a2e9c3ab7dc73a56e987ce60a9fd7a39477fa5d28c7fda75b036455f"
-          parts = sorted(Path(".mawja-source").glob("part*.b64"))
-          assert [p.name for p in parts] == [f"part{i:02d}.b64" for i in range(1, 10)], parts
-          encoded = "".join(p.read_text(encoding="utf-8").strip() for p in parts)
-          raw = base64.b64decode(encoded, validate=True)
-          actual = hashlib.sha256(raw).hexdigest()
-          print(f"parts={len(parts)} base64_chars={len(encoded)} bytes={len(raw)}")
-          print(f"sha256={actual}")
-          if actual != expected:
-              raise SystemExit(f"SHA256 mismatch: expected {expected}, got {actual}")
-          Path("Mawja-Native-V25-Deep-Review-Source.zip").write_bytes(raw)
+          import base64, hashlib
+          s=open("Mawja-Native-V25-Deep-Review-Source.b64","rb").read()
+          s=b"".join(s.split())
+          assert len(s)==46252, len(s)
+          raw=base64.b64decode(s, validate=True)
+          got=hashlib.sha256(raw).hexdigest()
+          expected="41d0352980313a932652af1d1d13243ca52fd26a29ad9c8ad15a7e4e810f5bc6"
+          print("BASE64_LENGTH=",len(s))
+          print("ZIP_BYTES=",len(raw))
+          print("ZIP_SHA256=",got)
+          if got != expected:
+              raise SystemExit(f"ZIP SHA256 mismatch: expected {expected}, got {got}")
+          open("Mawja-Native-V25-Deep-Review-Source.zip","wb").write(raw)
           PY
-
           unzip -tq Mawja-Native-V25-Deep-Review-Source.zip
-          rm -rf .mawja-build-source
-          mkdir -p .mawja-build-source
-          unzip -q Mawja-Native-V25-Deep-Review-Source.zip -d .mawja-build-source
-          rsync -a .mawja-build-source/ ./
-
+          rm -rf mawja-source
+          mkdir -p mawja-source
+          unzip -q -o Mawja-Native-V25-Deep-Review-Source.zip -d mawja-source
+          rsync -a mawja-source/ ./
           test -f settings.gradle.kts
           test -f app/build.gradle.kts
           test -f app/google-services.json
 
-      - name: Set up Java 21
+      - name: Prepare Android SDK 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/bin/sdkmanager"
+          fi
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;35.0.0" "platform-tools"
+
+      - name: Upgrade compileSdk for current dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i 's/compileSdk = 35/compileSdk = 36/' app/build.gradle.kts
+          grep -n 'compileSdk' app/build.gradle.kts
+
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: '21'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 35
-        shell: bash
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
-
-      - name: Set up Gradle 8.13
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.13"
+          gradle-version: '8.13'
 
-      - name: Build Release APK
+      - name: Build release APK
         shell: bash
         run: |
           set -euo pipefail
           gradle --no-daemon --stacktrace clean assembleRelease
-          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n 1)"
+          APK=$(find . -type f -path '*/build/outputs/apk/release/*.apk' | head -n 1)
           test -n "$APK"
+          test -s "$APK"
           cp "$APK" Mawja-V25-release.apk
           sha256sum Mawja-V25-release.apk | tee Mawja-V25-release.apk.sha256
+          unzip -tq Mawja-V25-release.apk
           ls -lh Mawja-V25-release.apk
 
-      - name: Upload APK artifact
+      - name: Upload release APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Mawja-V25-release
@@ -100,5 +110,5 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" Mawja-V25-release.apk Mawja-V25-release.apk.sha256 --clobber
           else
-            gh release create "$TAG" Mawja-V25-release.apk Mawja-V25-release.apk.sha256               --title "Mawja V25 (2.5.0)"               --target "${GITHUB_SHA}"               --notes "Mawja V25 native Android release. versionCode=25, versionName=2.5.0."
+            gh release create "$TAG" Mawja-V25-release.apk Mawja-V25-release.apk.sha256               --target "${GITHUB_SHA}"               --title "Mawja V25 (2.5.0)"               --notes "Mawja V25 native Android release. versionCode=25, versionName=2.5.0."
           fi
