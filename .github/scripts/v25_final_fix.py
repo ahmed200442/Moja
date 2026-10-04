@@ -40,6 +40,9 @@ data class NotificationReadParams(val p_notification_id: String)
 @Serializable
 data class ConversationReadParams(val p_conversation_id: String)
 
+@Serializable
+data class PresenceParams(val p_online: Boolean, val p_typing_conversation_id: String?)
+
 class MawjaRepository {""",
         1,
     )
@@ -76,6 +79,35 @@ end = s.index("    suspend fun setPresence", start)
 s = s[:start] + """    suspend fun markConversationRead(conversationId: String) {
         client.postgrest.rpc("mawja_mark_conversation_read", ConversationReadParams(conversationId))
     }
+
+""" + s[end:]
+
+start = s.index("    suspend fun inbox")
+end = s.index("    suspend fun profilesByIds", start)
+s = s[:start] + """    suspend fun inbox(): List<InboxRow> = client.from<InboxRow>("mawja_inbox").select {
+        filter { eq("user_id", userId()) }
+    }.decodeList<InboxRow>().sortedByDescending { it.last_message_at ?: it.updated_at }
+
+""" + s[end:]
+
+start = s.index("    suspend fun profilesByIds")
+end = s.index("    suspend fun markConversationRead", start)
+s = s[:start] + """    suspend fun profilesByIds(ids: List<String>): List<Profile> {
+        if (ids.isEmpty()) return emptyList()
+        return client.from<Profile>("profiles").select {
+            filter { isIn("id", ids) }
+        }.decodeList<Profile>()
+    }
+
+""" + s[end:]
+
+start = s.index("    suspend fun setPresence")
+end = s.index("    fun presenceFlow", start)
+s = s[:start] + """    suspend fun setPresence(online: Boolean, typingConversationId: String? = null): UserPresence =
+        client.postgrest.rpc(
+            "mawja_set_presence",
+            PresenceParams(online, typingConversationId)
+        ).decodeSingle<UserPresence>()
 
 """ + s[end:]
 
