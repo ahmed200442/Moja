@@ -21,7 +21,7 @@ if "import io.ktor.client.call.body" not in s:
                   "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
 
 # Explicit result types where Kotlin 2.2 cannot infer the RPC generic.
-s = s.replace('''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
+s = s.replace('''client.postgrest.rpc<Unit>("mawja_register_push_token", buildJsonObject {
             put("p_token", token)
             put("p_platform", platform)
         })''',
@@ -29,9 +29,9 @@ s = s.replace('''client.postgrest.rpc("mawja_register_push_token", buildJsonObje
             put("p_token", token)
             put("p_platform", platform)
         }).decodeSingle<Unit>()''')
-s = s.replace('''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })''',
+s = s.replace('''client.postgrest.rpc<Unit>("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })''',
               '''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()''')
-s = s.replace('''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })''',
+s = s.replace('''client.postgrest.rpc<Unit>("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })''',
               '''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()''')
 
 # Explicit list type for profile query.
