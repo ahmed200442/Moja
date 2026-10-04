@@ -24,7 +24,7 @@ for name, typ in types.items():
 
 for name, typ in {"profile":"Profile","wallet":"Wallet","notificationRoute":"JsonObject","setPresence":"UserPresence"}.items():
     s = re.sub(r"(suspend fun "+re.escape(name)+r"([^\n]*)[^\n]*?)\.decodeSingle\(\)", r"\1.decodeSingle<"+typ+">()", s)
-s = s.replace('client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        })','client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        }).decodeSingle<Unit>()')
+s = s.replace('client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        })','client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        }).decodeSingle<kotlinx.serialization.json.JsonObject>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })','client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })','client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()')
 s=s.replace("""        }.decodeList()
