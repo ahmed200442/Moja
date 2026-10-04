@@ -73,17 +73,16 @@ fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
     m=m.replace(marker,insert+marker,1)
 main.write_text(m)
 
+
 # Owner-only admin dashboard.
 admin=Path("app/src/main/java/com/mawja/app/AdminConfig.kt")
-admin.write_text("""package com.mawja.app
+admin.write_text(
+    "package com.mawja.app\n\n"
+    "const val OWNER_ADMIN_EMAIL = \"hamadanagy1979@gmail.com\"\n\n"
+    "fun isOwnerAdmin(email: String?): Boolean =\n"
+    "    email?.trim()?.equals(OWNER_ADMIN_EMAIL, ignoreCase = true) == true\n"
+)
 
-const val OWNER_ADMIN_EMAIL = "hamadanagy1979@gmail.com"
-
-fun isOwnerAdmin(email: String?): Boolean =
-    email?.trim()?.equals(OWNER_ADMIN_EMAIL, ignoreCase = true) == true
-""")
-
-# Add an owner-only admin button to the existing navigation without changing normal member navigation.
 m=main.read_text()
 if "showOwnerAdmin" not in m:
     m=m.replace(
@@ -91,54 +90,43 @@ if "showOwnerAdmin" not in m:
         '    var showNotifications by remember { mutableStateOf(false) }\n    var showOwnerAdmin by remember { mutableStateOf(false) }',
         1
     )
-nav_marker='''                items.forEachIndexed { i, item ->
-                    NavigationBarItem('''
-nav_repl='''                items.forEachIndexed { i, item ->
-                    NavigationBarItem('''
-    # Insert the admin item immediately before the closing NavigationBar after the regular items loop.
-    close_marker='''                }
-            }
-        ) { pad ->'''
-    close_repl='''                }
-                if (isOwnerAdmin(com.mawja.app.data.SupabaseProvider.client.auth.currentSessionOrNull()?.user?.email)) {
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = { showOwnerAdmin = true },
-                        icon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = "الإدارة") },
-                        label = { Text("الإدارة", fontSize = 11.sp) }
-                    )
-                }
-            }
-        ) { pad ->'''
-    if close_marker in m:
-        m=m.replace(close_marker,close_repl,1)
-    else:
+
+close_marker = "                }\n            }\n        ) { pad ->"
+close_repl = (
+    "                }\n"
+    "                if (isOwnerAdmin(com.mawja.app.data.SupabaseProvider.client.auth.currentSessionOrNull()?.user?.email)) {\n"
+    "                    NavigationBarItem(\n"
+    "                        selected = false,\n"
+    "                        onClick = { showOwnerAdmin = true },\n"
+    "                        icon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = \"الإدارة\") },\n"
+    "                        label = { Text(\"الإدارة\", fontSize = 11.sp) }\n"
+    "                    )\n"
+    "                }\n"
+    "            }\n"
+    "        ) { pad ->"
+)
+if "showOwnerAdmin = true" not in m:
+    if close_marker not in m:
         raise SystemExit("navigation close marker missing")
-    # Add the dialog before the end of MainMawjaContent.
-    scaffold_end='''    }
-}
+    m=m.replace(close_marker, close_repl, 1)
 
-@Composable
-private fun '''
-    dialog='''    }
-    if (showOwnerAdmin) {
-        OwnerAdminDashboard(
-            ownerEmail = OWNER_ADMIN_EMAIL,
-            onClose = { showOwnerAdmin = false }
-        )
-    }
-}
-
-@Composable
-private fun '''
-    if scaffold_end in m:
-        m=m.replace(scaffold_end,dialog,1)
-    else:
+scaffold_end = "    }\n}\n\n@Composable\nprivate fun "
+dialog = (
+    "    }\n"
+    "    if (showOwnerAdmin) {\n"
+    "        OwnerAdminDashboard(ownerEmail = OWNER_ADMIN_EMAIL, onClose = { showOwnerAdmin = false })\n"
+    "    }\n"
+    "}\n\n"
+    "@Composable\nprivate fun "
+)
+if "OwnerAdminDashboard(ownerEmail" not in m:
+    if scaffold_end not in m:
         raise SystemExit("MainMawjaContent end marker missing")
+    m=m.replace(scaffold_end, dialog, 1)
 
 if "private fun OwnerAdminDashboard(" not in m:
-    m += '''
-
+    m += """
+    
 @Composable
 private fun OwnerAdminDashboard(ownerEmail: String, onClose: () -> Unit) {
     Dialog(onDismissRequest = onClose) {
@@ -192,8 +180,8 @@ private fun AdminControlCard(icon: ImageVector, title: String, subtitle: String)
         }
     }
 }
-'''
+"""
 if "import androidx.compose.ui.graphics.vector.ImageVector" not in m:
     m=m.replace("import androidx.compose.ui.graphics.Color", "import androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.vector.ImageVector", 1)
-main.write_text(m)
 
+main.write_text(m)
