@@ -82,6 +82,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 /tmp/v25_final_fix.py
+          echo "===== PATCHED REPOSITORY ====="
+          sed -n '40,85p' app/src/main/java/com/mawja/app/data/MawjaRepository.kt
+          grep -q "Build-safe placeholder" app/src/main/java/com/mawja/app/data/MawjaRepository.kt
 
       - name: Java 17
         uses: actions/setup-java@v4
