@@ -3,7 +3,8 @@ name: Mawja V25 Final APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -13,7 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Reconstruct V25 source
         shell: bash
@@ -43,7 +45,7 @@ jobs:
           yes | "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
           "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0" "platform-tools"
 
-      - name: Patch V25 source
+      - name: Patch build configuration
         shell: bash
         run: |
           set -euo pipefail
@@ -69,52 +71,6 @@ jobs:
           }
           """
           p.write_text(s)
-
-          p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
-          s=p.read_text()
-          s=s.replace("import io.github.jan.supabase.auth.providers.Email","import io.github.jan.supabase.auth.providers.builtin.Email")
-          if "import io.github.jan.supabase.auth.auth" not in s:
-              s=s.replace("import io.github.jan.supabase.auth.providers.builtin.Email","import io.github.jan.supabase.auth.auth\nimport io.github.jan.supabase.auth.providers.builtin.Email")
-          if "import io.github.jan.supabase.postgrest.postgrest" not in s:
-              s=s.replace("import io.github.jan.supabase.postgrest.from","import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest")
-          if "import io.github.jan.supabase.functions.functions" not in s:
-              s=s.replace("import io.github.jan.supabase.functions.invoke","import io.github.jan.supabase.functions.functions\nimport io.github.jan.supabase.functions.invoke")
-          if "import io.ktor.client.call.body" not in s:
-              s=s.replace("import kotlinx.serialization.json.JsonObject","import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
-          s=s.replace('client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }',
-                      'client.postgrest.from("profiles").update(buildJsonObject { put("name", name) }) { filter { eq("id", id) } }.decodeSingle<Unit>()')
-          p.write_text(s)
-
-          p=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
-          s=p.read_text()
-          s=s.replace("unreadNotifications = state.notifications.count { !it.is_read },","unreadNotifications = state.notifications.count { !it.is_read }.toLong(),")
-          s=s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
-          s=s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
-          s=s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontSize = 16.sp, fontWeight = FontWeight.Bold)')
-          if "fun ChallengeRow(" not in s:
-              marker="@Composable fun RankRow(name: String, score: String) {"
-              insert="""@Composable
-          fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
-              Card(colors = CardDefaults.cardColors(containerColor = Surface), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
-                  Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                      Column(Modifier.weight(1f)) {
-                          Text(title, fontWeight = FontWeight.Bold)
-                          Text("النتيجة: $score", color = Color.Gray, fontSize = 12.sp)
-                      }
-                      FilledTonalButton(onClick = onBuzz) {
-                          Icon(Icons.Default.Bolt, contentDescription = null)
-                          Spacer(Modifier.width(5.dp))
-                          Text("Buzz")
-                      }
-                  }
-              }
-          }
-
-          """
-              if marker not in s:
-                  raise SystemExit("ChallengeRow marker missing")
-              s=s.replace(marker,insert+marker,1)
-          p.write_text(s)
           PY
 
       - name: Apply final V25 compile fixes
@@ -122,28 +78,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 .github/scripts/v25_final_fix.py
-          # Normalize Supabase 3.5 APIs and Kotlin 2.2 type inference.
-          sed -i '/^import io.github.jan.supabase.functions.invoke$/d' app/src/main/java/com/mawja/app/data/MawjaRepository.kt
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
-          s=p.read_text()
-          s=s.replace('''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
-            put("p_token", token)
-            put("p_platform", platform)
-        })''','''client.postgrest.rpc("mawja_register_push_token", buildJsonObject {
-            put("p_token", token)
-            put("p_platform", platform)
-        }).decodeSingle<Unit>()''')
-          s=s.replace('''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })''','''client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()''')
-          s=s.replace('''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })''','''client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<Unit>()''')
-          s=s.replace('''return client.from("profiles").select {
-            filter { isIn("id", ids) }
-        }.decodeList()''','''return client.from("profiles").select {
-            filter { isIn("id", ids) }
-        }.decodeList<Profile>()''')
-          p.write_text(s)
-          PY
 
       - name: Java 17
         uses: actions/setup-java@v4
