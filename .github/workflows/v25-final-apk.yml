@@ -1,0 +1,117 @@
+name: Mawja V25 Final APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct V25 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .mawja-source/raw-01.b64 .mawja-source/raw-02.b64 .mawja-source/raw-03.b64 .mawja-source/raw-04.b64 .mawja-source/raw-05.b64 .mawja-source/raw-06.b64 .mawja-source/raw-07.b64 > source.b64
+          python3 - <<'PY'
+          import base64, hashlib
+          s=b"".join(open("source.b64","rb").read().split())
+          assert len(s)==46252, len(s)
+          raw=base64.b64decode(s, validate=True)
+          assert hashlib.sha256(raw).hexdigest()=="41d0352980313a932652af1d1d13243ca52fd26a29ad9c8ad15a7e4e810f5bc6"
+          open("source.zip","wb").write(raw)
+          PY
+          unzip -tq source.zip
+          rm -rf src
+          mkdir src
+          unzip -q source.zip -d src
+          rsync -a src/ ./
+          test -f app/build.gradle.kts
+          test -f app/google-services.json
+
+      - name: Install Android SDK
+        run: |
+          set -e
+          yes | "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          "${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0" "platform-tools"
+
+      - name: Patch build configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/build.gradle.kts")
+          s=p.read_text()
+          s=s.replace("compileSdk = 35","compileSdk = 36")
+          s=s.replace("compileSdk 35","compileSdk 36")
+          s=s.replace("JavaVersion.VERSION_1_8","JavaVersion.VERSION_17")
+          if "sourceCompatibility = JavaVersion.VERSION_17" not in s:
+              s += '''
+          
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+          
+          kotlin {
+              jvmToolchain(17)
+          }
+          '''
+          p.write_text(s)
+
+          p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
+          s=p.read_text()
+          s=s.replace("import io.github.jan.supabase.auth.providers.Email","import io.github.jan.supabase.auth.providers.builtin.Email")
+          s=s.replace("import io.github.jan.supabase.functions.invoke\n","")
+          p.write_text(s)
+
+          p=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
+          s=p.read_text()
+          s=s.replace("unreadNotifications = state.notifications.count { !it.is_read },","unreadNotifications = state.notifications.count { !it.is_read }.toLong(),")
+          s=s.replace('Text(name, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(name, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
+          s=s.replace('Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(title, modifier = Modifier.weight(1f), fontSize = 18.sp, fontWeight = FontWeight.Bold)')
+          s=s.replace('Text(n.title, fontWeight = FontWeight.Bold, Modifier.weight(1f))','Text(n.title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)')
+          p.write_text(s)
+          PY
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build release APK
+        run: |
+          set -euo pipefail
+          gradle --no-daemon --stacktrace clean assembleRelease
+          APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)
+          test -n "$APK"
+          test -s "$APK"
+          cp "$APK" Mawja-V25-release.apk
+          sha256sum Mawja-V25-release.apk > Mawja-V25-release.apk.sha256
+          unzip -tq Mawja-V25-release.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mawja-V25-release
+          path: |
+            Mawja-V25-release.apk
+            Mawja-V25-release.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
