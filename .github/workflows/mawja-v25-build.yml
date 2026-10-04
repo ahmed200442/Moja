@@ -64,18 +64,22 @@ jobs:
           from pathlib import Path
 
           repo=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
-          s=repo.read_text()
-          s=s.replace("import io.github.jan.supabase.auth.providers.Email", "import io.github.jan.supabase.auth.providers.builtin.Email")
-          s=s.replace("import io.github.jan.supabase.functions.invoke\\n", "")
-          package_line="package com.mawja.app.data\\n"
-          body=s[len(package_line):] if s.startswith(package_line) else s
-          imports="import io.github.jan.supabase.auth.auth\\nimport io.github.jan.supabase.postgrest.postgrest\\nimport io.github.jan.supabase.functions.functions\\n"
-          if s.startswith(package_line):
-              for imp in reversed(imports.splitlines(keepends=True)):
-                  if imp not in body:
-                      body=imp+body
-              s=package_line+body
-          repo.write_text(s)
+          lines=repo.read_text().splitlines()
+          cleaned=[]
+          for line in lines:
+              if line.strip() == "import io.github.jan.supabase.functions.invoke":
+                  continue
+              if line.strip() == "import io.github.jan.supabase.auth.providers.Email":
+                  line="import io.github.jan.supabase.auth.providers.builtin.Email"
+              cleaned.append(line)
+          if "import io.github.jan.supabase.auth.auth" not in cleaned:
+              pkg=cleaned.index("package com.mawja.app.data")
+              cleaned[pkg+1:pkg+1]=[
+                  "import io.github.jan.supabase.auth.auth",
+                  "import io.github.jan.supabase.postgrest.postgrest",
+                  "import io.github.jan.supabase.functions.functions",
+              ]
+          repo.write_text("\\n".join(cleaned)+"\\n")
 
           main=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
           s=main.read_text()
