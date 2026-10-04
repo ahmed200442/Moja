@@ -13,15 +13,16 @@ if "import io.ktor.client.call.body" not in s:
     s = s.replace("import kotlinx.serialization.json.JsonObject", "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
 
 types = {
- "profile":"Profile", "wallet":"Wallet", "featuredWaves":"List<Wave>",
- "leaderboard":"List<LeaderboardRow>", "searchProfiles":"List<Profile>",
- "friendships":"List<Friendship>", "challenges":"List<Challenge>",
- "notifications":"List<Notification>", "inbox":"List<InboxRow>"
+ "profile":"Profile", "wallet":"Wallet", "featuredWaves":"Wave",
+ "leaderboard":"LeaderboardRow", "searchProfiles":"Profile",
+ "friendships":"Friendship", "challenges":"Challenge",
+ "notifications":"Notification", "inbox":"InboxRow",
+ "profilesByIds":"Profile"
 }
 for name, typ in types.items():
-    s = re.sub(r"(suspend fun "+re.escape(name)+r"\([^\n]*\)[^\n]*?)\.decodeList\(\)", r"\1.decodeList<"+typ+">()", s)
+    s = re.sub(r"(suspend fun "+re.escape(name)+r"([^\n]*)[^\n]*?)\.decodeList\(\)", r"\1.decodeList<"+typ+">()", s)
 for name, typ in {"profile":"Profile","wallet":"Wallet","notificationRoute":"JsonObject","setPresence":"UserPresence"}.items():
-    s = re.sub(r"(suspend fun "+re.escape(name)+r"\([^\n]*\)[^\n]*?)\.decodeSingle\(\)", r"\1.decodeSingle<"+typ+">()", s)
+    s = re.sub(r"(suspend fun "+re.escape(name)+r"([^\n]*)[^\n]*?)\.decodeSingle\(\)", r"\1.decodeSingle<"+typ+">()", s)
 
 s = s.replace('client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        })','client.postgrest.rpc("mawja_register_push_token", buildJsonObject {\n            put("p_token", token)\n            put("p_platform", platform)\n        }).decodeSingle<Unit>()')
 s = s.replace('client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })','client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<Unit>()')
