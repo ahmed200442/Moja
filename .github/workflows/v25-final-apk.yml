@@ -52,37 +52,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 /tmp/v25_final_fix.py
-          python3 - <<'PY'
-from pathlib import Path
-p=Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
-s=p.read_text()
-s=s.replace('return client.from("profiles").select {\n            filter { isIn("id", ids) }\n        }.decodeList()','return client.from("profiles").select {\n            filter { isIn("id", ids) }\n        }.decodeList<Profile>()')
-s=s.replace('        })\n    }\n\n    suspend fun markNotificationRead','        }).decodeSingle<JsonObject>()\n    }\n\n    suspend fun markNotificationRead')
-s=s.replace('client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) })','client.postgrest.rpc("mawja_mark_notification_read", buildJsonObject { put("p_notification_id", notificationId) }).decodeSingle<JsonObject>()')
-s=s.replace('client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) })','client.postgrest.rpc("mawja_mark_conversation_read", buildJsonObject { put("p_conversation_id", conversationId) }).decodeSingle<JsonObject>()')
-p.write_text(s)
-
-p=Path("app/src/main/java/com/mawja/app/MainActivity.kt")
-s=p.read_text()
-if "fun ChallengeRow(" not in s:
-    marker="@Composable fun RankRow(name: String, score: String) {"
-    block='''@Composable
-fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, fontWeight = FontWeight.Bold)
-                Text("النتيجة: $score", fontSize = 12.sp)
-            }
-            FilledTonalButton(onClick = onBuzz) { Text("Buzz") }
-        }
-    }
-}
-
-'''
-    s=s.replace(marker,block+marker,1)
-p.write_text(s)
-PY
           sed -n '40,85p' app/src/main/java/com/mawja/app/data/MawjaRepository.kt
       - name: Java 17
         uses: actions/setup-java@v4
