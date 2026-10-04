@@ -72,3 +72,126 @@ fun ChallengeRow(title: String, score: String, onBuzz: () -> Unit) {
     if marker not in m: raise SystemExit("ChallengeRow marker missing")
     m=m.replace(marker,insert+marker,1)
 main.write_text(m)
+
+# Owner-only admin dashboard.
+admin=Path("app/src/main/java/com/mawja/app/AdminConfig.kt")
+admin.write_text("""package com.mawja.app
+
+const val OWNER_ADMIN_EMAIL = "hamadanagy1979@gmail.com"
+
+fun isOwnerAdmin(email: String?): Boolean =
+    email?.trim()?.equals(OWNER_ADMIN_EMAIL, ignoreCase = true) == true
+""")
+
+# Add an owner-only admin button to the existing navigation without changing normal member navigation.
+m=main.read_text()
+if "showOwnerAdmin" not in m:
+    m=m.replace(
+        '    var showNotifications by remember { mutableStateOf(false) }',
+        '    var showNotifications by remember { mutableStateOf(false) }\n    var showOwnerAdmin by remember { mutableStateOf(false) }',
+        1
+    )
+nav_marker='''                items.forEachIndexed { i, item ->
+                    NavigationBarItem('''
+nav_repl='''                items.forEachIndexed { i, item ->
+                    NavigationBarItem('''
+    # Insert the admin item immediately before the closing NavigationBar after the regular items loop.
+    close_marker='''                }
+            }
+        ) { pad ->'''
+    close_repl='''                }
+                if (isOwnerAdmin(com.mawja.app.data.SupabaseProvider.client.auth.currentSessionOrNull()?.user?.email)) {
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { showOwnerAdmin = true },
+                        icon = { Icon(Icons.Default.AdminPanelSettings, contentDescription = "الإدارة") },
+                        label = { Text("الإدارة", fontSize = 11.sp) }
+                    )
+                }
+            }
+        ) { pad ->'''
+    if close_marker in m:
+        m=m.replace(close_marker,close_repl,1)
+    else:
+        raise SystemExit("navigation close marker missing")
+    # Add the dialog before the end of MainMawjaContent.
+    scaffold_end='''    }
+}
+
+@Composable
+private fun '''
+    dialog='''    }
+    if (showOwnerAdmin) {
+        OwnerAdminDashboard(
+            ownerEmail = OWNER_ADMIN_EMAIL,
+            onClose = { showOwnerAdmin = false }
+        )
+    }
+}
+
+@Composable
+private fun '''
+    if scaffold_end in m:
+        m=m.replace(scaffold_end,dialog,1)
+    else:
+        raise SystemExit("MainMawjaContent end marker missing")
+
+if "private fun OwnerAdminDashboard(" not in m:
+    m += '''
+
+@Composable
+private fun OwnerAdminDashboard(ownerEmail: String, onClose: () -> Unit) {
+    Dialog(onDismissRequest = onClose) {
+        Surface(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.9f),
+            shape = RoundedCornerShape(24.dp),
+            color = Surface
+        ) {
+            Column(Modifier.padding(18.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = Cyan)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("لوحة تحكم مالك التطبيق", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(ownerEmail, color = Color.Gray, fontSize = 12.sp)
+                    }
+                    IconButton(onClick = onClose) {
+                        Icon(Icons.Default.Close, contentDescription = "إغلاق")
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("صلاحيات المالك فقط", color = Cyan, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item { AdminControlCard(Icons.Default.People, "إدارة الأعضاء", "مراجعة الأعضاء والحسابات والصلاحيات") }
+                    item { AdminControlCard(Icons.Default.MeetingRoom, "إدارة الغرف", "التحكم في الغرف والمايك والمقاعد والإدارة") }
+                    item { AdminControlCard(Icons.Default.Campaign, "الإعلانات", "إرسال إعلانات وتنبيهات لأعضاء التطبيق") }
+                    item { AdminControlCard(Icons.Default.Analytics, "الإحصائيات", "متابعة التسجيلات والنشاط والغرف والرسائل") }
+                    item { AdminControlCard(Icons.Default.Security, "الأمان", "إعدادات وحماية حساب المالك ولوحة التحكم") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminControlCard(icon: ImageVector, title: String, subtitle: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Surface2)
+    ) {
+        Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = Cyan, modifier = Modifier.size(30.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = Color.Gray, fontSize = 12.sp)
+            }
+            Icon(Icons.Default.ChevronLeft, contentDescription = null)
+        }
+    }
+}
+'''
+main.write_text(m)
+
