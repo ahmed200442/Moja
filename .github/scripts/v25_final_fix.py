@@ -12,6 +12,7 @@ if "import io.ktor.client.call.body" not in s:
     s=s.replace("import kotlinx.serialization.json.JsonObject","import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject")
 s=s.replace("}.decodeList().sortedByDescending { it.created_at }","}.decodeList<Notification>().sortedByDescending { it.created_at }")
 s=s.replace("}.decodeList().sortedByDescending { it.last_message_at ?: it.updated_at }","}.decodeList<InboxRow>().sortedByDescending { it.last_message_at ?: it.updated_at }")
+s=s.replace('} .decodeList()\n    }\n\n    suspend fun markConversationRead'.replace("} ","}"), '} .decodeList<Profile>()\n    }\n\n    suspend fun markConversationRead'.replace("} ","}"))
 s=s.replace('}.decodeList()\n    }\n\n    suspend fun markConversationRead','}.decodeList<Profile>()\n    }\n\n    suspend fun markConversationRead')
 s=re.sub(r'    suspend fun registerPushToken\(.*?\n    }', '''    suspend fun registerPushToken(token: String, platform: String = "android") {
         @Suppress("UNUSED_VARIABLE")
