@@ -8,6 +8,8 @@ def replace_between(text, start_marker, end_marker, replacement):
 # Repository imports and compile-safe helper methods.
 repo = Path("app/src/main/java/com/mawja/app/data/MawjaRepository.kt")
 s = repo.read_text()
+if not s.startswith("@file:Suppress"):
+    s = "@file:Suppress(\"OPT_IN_USAGE\", \"EXPERIMENTAL_API_USAGE\")\n" + s
 
 s = s.replace(
     "import io.github.jan.supabase.auth.providers.Email",
