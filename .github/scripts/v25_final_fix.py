@@ -9,7 +9,8 @@ s = s.replace(
 )
 s = s.replace("import io.github.jan.supabase.functions.invoke\n", "")
 s = s.replace(
-    "import io.github.jan.supabase.postgrest.from",
+    "import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.query.Columns",
     "import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest",
 )
 s = s.replace(
