@@ -26,6 +26,8 @@ if "import io.github.jan.supabase.postgrest.postgrest" not in s:
         "import io.github.jan.supabase.postgrest.from",
         "import io.github.jan.supabase.postgrest.from\nimport io.github.jan.supabase.postgrest.postgrest"
     )
+if "import kotlinx.serialization.json.JsonPrimitive" not in s:
+    s = s.replace("import kotlinx.serialization.json.JsonObject", "import kotlinx.serialization.json.JsonObject\nimport kotlinx.serialization.json.JsonPrimitive")
 if "import io.ktor.client.call.body" not in s:
     s = s.replace(
         "import kotlinx.serialization.json.JsonObject",
