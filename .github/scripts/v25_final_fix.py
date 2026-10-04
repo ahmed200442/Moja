@@ -38,7 +38,7 @@ s = replace_between(
     "    suspend fun registerPushToken",
     "    suspend fun markNotificationRead",
     '''    suspend fun registerPushToken(token: String, platform: String = "android") {
-        client.postgrest.rpc(
+        val _: Any = client.postgrest.rpc(
             function = "mawja_register_push_token",
             parameters = buildJsonObject {
                 put("p_token", token)
@@ -55,7 +55,7 @@ s = replace_between(
     "    suspend fun markNotificationRead",
     "    suspend fun notificationRoute",
     '''    suspend fun markNotificationRead(notificationId: String) {
-        client.postgrest.rpc(
+        val _: Any = client.postgrest.rpc(
             function = "mawja_mark_notification_read",
             parameters = buildJsonObject {
                 put("p_notification_id", notificationId)
@@ -72,9 +72,10 @@ s = replace_between(
     "    suspend fun markConversationRead",
     '''    suspend fun profilesByIds(ids: List<String>): List<Profile> {
         if (ids.isEmpty()) return emptyList<Profile>()
-        return client.from("profiles").select {
+        val profiles: List<Profile> = client.from("profiles").select {
             filter { isIn("id", ids) }
         }.decodeList<Profile>()
+        return profiles
     }
 
 '''
@@ -85,7 +86,7 @@ s = replace_between(
     "    suspend fun markConversationRead",
     "    suspend fun setPresence",
     '''    suspend fun markConversationRead(conversationId: String) {
-        client.postgrest.rpc(
+        val _: Any = client.postgrest.rpc(
             function = "mawja_mark_conversation_read",
             parameters = buildJsonObject {
                 put("p_conversation_id", conversationId)
