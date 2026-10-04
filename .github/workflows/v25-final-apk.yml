@@ -75,7 +75,12 @@ jobs:
           if [ "$rc" -eq 0 ]; then
             APK=$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)
             test -n "$APK" && test -s "$APK"
-            cp "$APK" Mawja-V25-release.apk
+            cp "$APK" Mawja-V25-release-unsigned.apk
+            keytool -genkeypair -v -keystore mawja-v25-release.jks -storepass MawjaV25Build -keypass MawjaV25Build -alias mawja -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Mawja, OU=Mawja, O=Mawja, L=Egypt, ST=Giza, C=EG"
+            APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+            "$APKSIGNER" sign --ks mawja-v25-release.jks --ks-pass pass:MawjaV25Build --key-pass pass:MawjaV25Build --ks-key-alias mawja --out Mawja-V25-release.apk Mawja-V25-release-unsigned.apk
+            "$APKSIGNER" verify --verbose Mawja-V25-release.apk
+            rm -f Mawja-V25-release-unsigned.apk mawja-v25-release.jks
             sha256sum Mawja-V25-release.apk > Mawja-V25-release.apk.sha256
             unzip -tq Mawja-V25-release.apk
           fi
