@@ -27,7 +27,10 @@ if "import io.ktor.client.call.body" not in s:
         "import io.ktor.client.call.body\nimport kotlinx.serialization.json.JsonObject",
     )
 
-# Replace the affected functions by range so formatting cannot block the fix.
+# Make every side-effect RPC consume a typed response so Kotlin can infer T.
+if "import kotlinx.serialization.json.JsonElement" not in s:
+    s=s.replace("import kotlinx.serialization.json.JsonNull", "import kotlinx.serialization.json.JsonNull\nimport kotlinx.serialization.json.JsonElement")
+
 start=s.index("    suspend fun registerPushToken")
 end=s.index("    suspend fun markNotificationRead", start)
 s=s[:start]+"""    suspend fun registerPushToken(token: String, platform: String = "android") {
@@ -35,7 +38,7 @@ s=s[:start]+"""    suspend fun registerPushToken(token: String, platform: String
             put("p_token", token)
             put("p_platform", platform)
         }
-        client.postgrest.rpc("mawja_register_push_token", params)
+        client.postgrest.rpc("mawja_register_push_token", params).decodeSingle<JsonElement>()
     }
 
 """+s[end:]
@@ -44,7 +47,7 @@ start=s.index("    suspend fun markNotificationRead")
 end=s.index("    suspend fun notificationRoute", start)
 s=s[:start]+"""    suspend fun markNotificationRead(notificationId: String) {
         val params = buildJsonObject { put("p_notification_id", notificationId) }
-        client.postgrest.rpc("mawja_mark_notification_read", params)
+        client.postgrest.rpc("mawja_mark_notification_read", params).decodeSingle<JsonElement>()
     }
 
 """+s[end:]
@@ -64,7 +67,7 @@ start=s.index("    suspend fun markConversationRead")
 end=s.index("    suspend fun setPresence", start)
 s=s[:start]+"""    suspend fun markConversationRead(conversationId: String) {
         val params = buildJsonObject { put("p_conversation_id", conversationId) }
-        client.postgrest.rpc("mawja_mark_conversation_read", params)
+        client.postgrest.rpc("mawja_mark_conversation_read", params).decodeSingle<JsonElement>()
     }
 
 """+s[end:]
